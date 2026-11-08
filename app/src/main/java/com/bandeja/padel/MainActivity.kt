@@ -69,6 +69,12 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     private fun addPoint(team: Team) {
         val cur = saved.value
+        // El primer toque del partido elige quién saca y no puntúa.
+        if (!cur.serverPicked) {
+            update(cur.copy(firstServer = team, serverChosen = true))
+            vibrate(longArrayOf(0, 60, 60, 60))
+            return
+        }
         val before = cur.state()
         if (before.isFinished) return
         val now = System.currentTimeMillis()
@@ -87,7 +93,11 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     private fun undo() {
         val cur = saved.value
-        if (cur.history.isEmpty()) return
+        if (cur.history.isEmpty()) {
+            // Sin puntos todavía: deshacer vuelve a preguntar quién saca.
+            if (cur.serverChosen) update(cur.copy(serverChosen = false))
+            return
+        }
         val wasFinished = cur.state().isFinished
         var next = cur.copy(history = cur.history.dropLast(1))
         if (wasFinished) next = next.startTimer(System.currentTimeMillis())

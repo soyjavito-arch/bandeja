@@ -12,7 +12,11 @@ data class Saved(
     /** Tiempo acumulado antes del último arranque. */
     val timerAccumMs: Long = 0L,
     val keepScreenOn: Boolean = true,
+    /** Ya se ha elegido quién saca (con el primer toque del partido). */
+    val serverChosen: Boolean = false,
 ) {
+    val serverPicked: Boolean get() = serverChosen || history.isNotEmpty()
+
     val timerRunning: Boolean get() = timerStartedAt != 0L
 
     fun elapsedMs(now: Long): Long =
@@ -45,6 +49,7 @@ class MatchStore(context: Context) {
             timerStartedAt = p.getLong("timerStartedAt", 0L),
             timerAccumMs = p.getLong("timerAccumMs", 0L),
             keepScreenOn = p.getBoolean("keepScreenOn", true),
+            serverChosen = p.getBoolean("serverChosen", false),
         )
     }
 
@@ -58,6 +63,7 @@ class MatchStore(context: Context) {
             .putLong("timerStartedAt", s.timerStartedAt)
             .putLong("timerAccumMs", s.timerAccumMs)
             .putBoolean("keepScreenOn", s.keepScreenOn)
+            .putBoolean("serverChosen", s.serverChosen)
             .apply()
     }
 }

@@ -95,7 +95,7 @@ fun BandejaApp(
                 val state = saved.state()
                 if (state.isFinished) {
                     FinishedScreen(saved, state, onUndo, onNew = {
-                        onChange(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L))
+                        onChange(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false))
                     })
                 } else {
                     ScoreScreen(saved, state, heartRate, onPoint, onUndo, onMenu = { showMenu = true })
@@ -187,6 +187,7 @@ private fun ScoreScreen(
             state.decidingLabel != null -> state.decidingLabel
             state.superTieBreak -> "SUPER TB"
             state.tieBreak -> "TIE-BREAK"
+            !saved.serverPicked -> "¿QUIÉN SACA?"
             saved.history.isEmpty() -> "SACA ${teamName(state.server).uppercase()}"
             else -> null
         }
@@ -195,7 +196,7 @@ private fun ScoreScreen(
         Team.entries.forEach { t ->
             val gy = if (t == Team.A) 0.255f else 0.615f // fila de juegos
             val py = if (t == Team.A) 0.19f else 0.565f // puntos
-            if (state.server == t) {
+            if (saved.serverPicked && state.server == t) {
                 Placed(left + f(0.085f), top + f(gy + 0.03f), f(0.08f), f(0.08f)) {
                     ServeBall(Modifier.size(f(0.075f)))
                 }
@@ -236,7 +237,7 @@ private fun ScoreScreen(
         // Franja central: deshacer, cronómetro + pulso, menú
         Box(Modifier.offset(left, top + f(0.5f) - 1.dp).size(s, 2.dp).background(Color(0x55FFFFFF)))
         Placed(left + f(0.045f), top + f(0.44f), f(0.12f), f(0.12f)) {
-            RoundIconButton("↶", f(0.12f), fs(0.075f), enabled = saved.history.isNotEmpty(), onClick = onUndo)
+            RoundIconButton("↶", f(0.12f), fs(0.075f), enabled = saved.serverPicked, onClick = onUndo)
         }
         Placed(left + f(0.835f), top + f(0.44f), f(0.12f), f(0.12f)) {
             RoundIconButton("⋯", f(0.12f), fs(0.075f), enabled = true, onClick = onMenu)
@@ -363,7 +364,7 @@ private fun MenuScreen(saved: Saved, onChange: (Saved) -> Unit, onClose: () -> U
                 highlight = true,
             ) {
                 if (confirmNew) {
-                    onChange(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L))
+                    onChange(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false))
                     onClose()
                 } else confirmNew = true
             }
@@ -395,7 +396,7 @@ private fun MenuScreen(saved: Saved, onChange: (Saved) -> Unit, onClose: () -> U
         }
         item {
             MenuChip("Saca primero: ${teamName(saved.firstServer)}", "Toca para cambiar") {
-                onChange(saved.copy(firstServer = saved.firstServer.other))
+                onChange(saved.copy(firstServer = saved.firstServer.other, serverChosen = true))
             }
         }
         item {
