@@ -275,11 +275,12 @@ private fun ScoreScreen(
                             "$mine",
                             fontSize = fs(if (set.superTieBreak) 0.08f else 0.115f),
                             fontWeight = FontWeight.ExtraBold,
-                            color = if (won) Color.White else Color(0x99FFFFFF),
+                            // Sets ya jugados más apagados que el set actual
+                            color = if (won) Color(0xB3FFFFFF) else Color(0x66FFFFFF),
                         )
                     }
                     if (!state.superTieBreak || state.sets.isEmpty()) {
-                        Text("${state.games(t)}", fontSize = fs(0.13f), fontWeight = FontWeight.ExtraBold, color = teamColor(t))
+                        Text("${state.games(t)}", fontSize = fs(0.13f), fontWeight = FontWeight.ExtraBold, color = Color.White)
                     }
                 }
             }
