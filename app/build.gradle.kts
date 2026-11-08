@@ -16,12 +16,25 @@ android {
         versionName = "1.0"
     }
 
+    // Clave de firma fija guardada como secreto en GitHub: así cada versión nueva
+    // se instala encima de la anterior sin desinstalar. En local, firma de depuración.
+    val keystorePath = System.getenv("BANDEJA_KEYSTORE")
+    if (keystorePath != null) {
+        signingConfigs {
+            create("bandeja") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("BANDEJA_KEYSTORE_PASSWORD")
+                keyAlias = "bandeja"
+                keyPassword = System.getenv("BANDEJA_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            // Firmado con la clave de depuración para poder instalarlo directamente.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("bandeja") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {

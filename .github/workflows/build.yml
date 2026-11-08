@@ -22,7 +22,17 @@ jobs:
           gradle-version: 8.14.3
       - name: Tests de la lógica del marcador
         run: gradle :app:testDebugUnitTest
+      - name: Preparar clave de firma
+        env:
+          KEYSTORE_B64: ${{ secrets.BANDEJA_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/bandeja.jks"
+            echo "BANDEJA_KEYSTORE=$RUNNER_TEMP/bandeja.jks" >> "$GITHUB_ENV"
+          fi
       - name: Compilar APK
+        env:
+          BANDEJA_KEYSTORE_PASSWORD: ${{ secrets.BANDEJA_KEYSTORE_PASSWORD }}
         run: gradle :app:assembleRelease
       - name: Renombrar APK
         run: cp app/build/outputs/apk/release/app-release.apk Bandeja.apk
