@@ -71,7 +71,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         val cur = saved.value
         // El primer toque del partido elige quién saca y no puntúa.
         if (!cur.serverPicked) {
-            update(cur.copy(firstServer = team, serverChosen = true))
+            // El cronómetro arranca al elegir quién saca.
+            update(cur.copy(firstServer = team, serverChosen = true).startTimer(System.currentTimeMillis()))
             vibrate(longArrayOf(0, 60, 60, 60))
             return
         }
@@ -97,7 +98,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         val cur = saved.value
         if (cur.history.isEmpty()) {
             // Sin puntos todavía: deshacer vuelve a preguntar quién saca.
-            if (cur.serverChosen) update(cur.copy(serverChosen = false))
+            if (cur.serverChosen) {
+                update(cur.copy(serverChosen = false, timerStartedAt = 0L, timerAccumMs = 0L))
+            }
             return
         }
         val wasFinished = cur.state().isFinished

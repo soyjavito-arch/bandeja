@@ -76,16 +76,17 @@ import kotlin.random.Random
 // Colores propios de Bandeja
 private val BlueTop = Color(0xFF16357F)
 private val BlueBottom = Color(0xFF081633)
-private val RedTop = Color(0xFF7A1726)
-private val RedBottom = Color(0xFF2E070D)
+private val GreenTop = Color(0xFF0F5A40)
+private val GreenBottom = Color(0xFF04140E)
 private val BlueText = Color(0xFF5B95FF)
 private val RedText = Color(0xFFFF6B72)
+private val GreenText = Color(0xFF4FE3A3)
 private val Gold = Color(0xFFFFC93C)
 private val Dim = Color(0xFF8A8F98)
 private val ButtonDark = Color(0xFF26292E)
 
-private fun teamName(t: Team) = if (t == Team.A) "Azul" else "Rojo"
-private fun teamColor(t: Team) = if (t == Team.A) BlueText else RedText
+private fun teamName(t: Team) = if (t == Team.A) "Azul" else "Verde"
+private fun teamColor(t: Team) = if (t == Team.A) BlueText else GreenText
 
 @Composable
 fun BandejaApp(
@@ -200,7 +201,7 @@ private fun ScoreScreen(
                 )
             }
             val brush = if (t == Team.A) Brush.verticalGradient(listOf(BlueBottom, BlueTop))
-            else Brush.verticalGradient(listOf(RedTop, RedBottom))
+            else Brush.verticalGradient(listOf(GreenTop, GreenBottom))
             Box(
                 Modifier.offset(left, top + f(y0)).size(s, f(0.5f))
                     .clip(shape).background(brush).clickable { onPoint(t) }
@@ -225,11 +226,12 @@ private fun ScoreScreen(
             }
         }
 
-        // Hora y, debajo, el pulso
-        Placed(left, top + f(0.025f), s, f(0.125f)) {
+        // Hora arriba
+        Placed(left, top + f(0.03f), s, f(0.13f)) {
             Text(clock.format(Date(now)), fontSize = fs(0.11f), fontWeight = FontWeight.Bold, color = Color.White)
         }
-        Placed(left, top + f(0.14f), s, f(0.095f)) {
+        // Pulso abajo
+        Placed(left, top + f(0.845f), s, f(0.1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("♥", fontSize = fs(0.07f), color = RedText)
                 Spacer(Modifier.width(f(0.015f)))
@@ -247,15 +249,16 @@ private fun ScoreScreen(
 
         // Juegos por set y puntos de cada pareja
         Team.entries.forEach { t ->
-            val gy = if (t == Team.A) 0.255f else 0.615f // fila de juegos
-            val py = if (t == Team.A) 0.19f else 0.58f // puntos
-            if (saved.serverPicked && state.server == t) {
-                Placed(left + f(0.085f), top + f(gy + 0.03f), f(0.08f), f(0.08f)) {
-                    ServeBall(Modifier.size(f(0.075f)))
+            val gy = if (t == Team.A) 0.255f else 0.6f // fila de juegos
+            val py = if (t == Team.A) 0.19f else 0.565f // puntos
+            // Pelota de saque, grande y justo a la izquierda de los puntos
+            if (saved.serverPicked && state.server == t && !showBigToss) {
+                Placed(left + f(0.375f), top + f(py + 0.065f), f(0.125f), f(0.125f)) {
+                    ServeBall(Modifier.size(f(0.115f)))
                 }
             }
             Box(
-                Modifier.offset(left + f(0.18f), top + f(gy)).size(f(0.34f), f(0.14f)),
+                Modifier.offset(left + f(0.11f), top + f(gy)).size(f(0.3f), f(0.14f)),
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(f(0.025f)), verticalAlignment = Alignment.CenterVertically) {
@@ -270,11 +273,11 @@ private fun ScoreScreen(
                         )
                     }
                     if (!state.superTieBreak || state.sets.isEmpty()) {
-                        Text("${state.games(t)}", fontSize = fs(0.13f), fontWeight = FontWeight.ExtraBold, color = Gold)
+                        Text("${state.games(t)}", fontSize = fs(0.13f), fontWeight = FontWeight.ExtraBold, color = teamColor(t))
                     }
                 }
             }
-            if (!showBigToss) Placed(left + f(0.45f), top + f(py), f(0.44f), f(0.25f)) {
+            if (!showBigToss) Placed(left + f(0.5f), top + f(py), f(0.42f), f(0.25f)) {
                 // Antes de empezar: el primer toque en una mitad elige quién saca
                 val label = if (saved.serverPicked) state.pointLabel(t) else "¿SACA?"
                 Text(
@@ -290,11 +293,11 @@ private fun ScoreScreen(
 
         // Franja central: deshacer, cronómetro + pulso, menú
         Box(Modifier.offset(left, top + f(0.5f) - 1.dp).size(s, 2.dp).background(Color(0x55FFFFFF)))
-        Placed(left + f(0.03f), top + f(0.425f), f(0.15f), f(0.15f)) {
-            RoundIconButton("↶", f(0.15f), fs(0.095f), enabled = saved.serverPicked, onClick = onUndo)
+        Placed(left + f(0.015f), top + f(0.415f), f(0.17f), f(0.17f)) {
+            RoundIconButton("↶", f(0.17f), fs(0.1f), enabled = saved.serverPicked, onClick = onUndo)
         }
-        Placed(left + f(0.82f), top + f(0.425f), f(0.15f), f(0.15f)) {
-            RoundIconButton("⋯", f(0.15f), fs(0.095f), enabled = true, onClick = onMenu)
+        Placed(left + f(0.815f), top + f(0.415f), f(0.17f), f(0.17f)) {
+            RoundIconButton("⋯", f(0.17f), fs(0.1f), enabled = true, onClick = onMenu)
         }
         if (showBigToss) {
             // Botón de sorteo gigante al empezar (60 % de la esfera)
@@ -331,7 +334,7 @@ private fun ScoreScreen(
                     Text("SORTEO", fontSize = fs(0.065f), fontWeight = FontWeight.ExtraBold, color = Color.Black)
                 }
             }
-        } else Placed(left + f(0.18f), top + f(0.445f), f(0.64f), f(0.11f)) {
+        } else Placed(left + f(0.17f), top + f(0.44f), f(0.58f), f(0.12f)) {
             Row(
                 Modifier.clip(RoundedCornerShape(f(0.045f))).background(if (deciding) Gold else Color(0xF00B1020))
                     .padding(horizontal = f(0.03f), vertical = f(0.008f)),
@@ -342,9 +345,9 @@ private fun ScoreScreen(
                     saved.timerRunning -> Gold
                     else -> Dim
                 }
-                Text("⏱", fontSize = fs(0.065f), color = timerColor)
+                Text("⏱", fontSize = fs(0.07f), color = timerColor)
                 Spacer(Modifier.width(f(0.012f)))
-                Text(formatDuration(saved.elapsedMs(now)), fontSize = fs(0.088f), fontWeight = FontWeight.ExtraBold, color = timerColor)
+                Text(formatDuration(saved.elapsedMs(now)), fontSize = fs(0.095f), fontWeight = FontWeight.ExtraBold, color = timerColor)
                 if (info != null) {
                     Spacer(Modifier.width(f(0.02f)))
                     Text(info, fontSize = fs(0.06f), fontWeight = FontWeight.ExtraBold, color = if (deciding) Color.Black else Gold, maxLines = 1)
