@@ -26,6 +26,13 @@ data class Saved(
     fun firstDrive(t: Team, set: Int): Boolean =
         (if (t == Team.A) orderA else orderB).getOrElse(set) { 'D' } == 'D'
 
+    /** Fija si el primer saque de la pareja en ese set lo hace el de la derecha (D) o el del revés (R). */
+    fun setOrder(t: Team, set: Int, drive: Boolean): Saved {
+        val cur = (if (t == Team.A) orderA else orderB).padEnd(set + 1, 'D')
+        val updated = cur.substring(0, set) + (if (drive) 'D' else 'R') + cur.substring(set + 1)
+        return if (t == Team.A) copy(orderA = updated) else copy(orderB = updated)
+    }
+
     /** Cambia D/R del primer saque de la pareja en ese set. */
     fun toggleServerPlayer(t: Team, set: Int): Saved {
         val cur = (if (t == Team.A) orderA else orderB).padEnd(set + 1, 'D')

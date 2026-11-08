@@ -131,7 +131,18 @@ fun BandejaApp(
                         onMenu = { showMenu = true },
                         onToss = { showToss = true },
                         bigToss = !tossDone,
-                        onToggleServerPlayer = { change(saved.toggleServerPlayer(state.server, state.setIndex)) },
+                        onPickServer = { t, drive ->
+                            if (!saved.serverPicked) {
+                                // Primer saque del partido: pareja y jugador a la vez
+                                change(
+                                    saved.copy(firstServer = t, serverChosen = true)
+                                        .setOrder(t, 0, drive)
+                                        .startTimer(System.currentTimeMillis())
+                                )
+                            } else if (t == state.server && state.canChooseServerPlayer) {
+                                change(saved.setOrder(t, state.setIndex, drive))
+                            }
+                        },
                     )
                     // Aviso de cambio de lado: se queda hasta que se toca la pantalla
                     if (state.endChanges > saved.endChangesSeen) {
@@ -182,7 +193,7 @@ private fun ScoreScreen(
     onMenu: () -> Unit,
     onToss: () -> Unit,
     bigToss: Boolean,
-    onToggleServerPlayer: () -> Unit,
+    onPickServer: (Team, Boolean) -> Unit,
 ) {
     val now = rememberNow()
     val showBigToss = bigToss && !saved.serverPicked
@@ -266,24 +277,27 @@ private fun ScoreScreen(
         Team.entries.forEach { t ->
             val gy = if (t == Team.A) 0.255f else 0.6f // fila de juegos
             val py = if (t == Team.A) 0.19f else 0.565f // puntos
-            // Pelota de saque con D (derecha) o R (revés). Al empezar cada juego se
-            // puede tocar para cambiar quién saca; con el primer punto se queda fija.
-            if (saved.serverPicked && state.server == t && !showBigToss) {
-                val drive = state.serverIsDrive(saved.firstDrive(t, state.setIndex))
-                val editable = state.canChooseServerPlayer
-                Placed(left + f(0.4f), top + f(py + 0.05f), f(0.15f), f(0.15f)) {
-                    Box(
-                        Modifier.size(f(0.145f)).clip(CircleShape)
-                            .then(if (editable) Modifier.background(Color.White).padding(f(0.01f)) else Modifier)
-                            .then(if (editable) Modifier.clickable(onClick = onToggleServerPlayer) else Modifier),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        ServeBall(Modifier.fillMaxSize())
-                        Text(
-                            if (drive) "D" else "R",
-                            fontSize = fs(0.075f),
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF1B2433),
+            // Dos pelotas por pareja: D (derecha) y R (revés). En amarillo, la del que saca.
+            // Se pueden tocar para elegir: al empezar el partido (las 4) y en el primer
+            // juego de saque de cada pareja en cada set; con el primer punto queda fijo.
+            if (!showBigToss) {
+                val serving = saved.serverPicked && state.server == t
+                val activeDrive = if (serving) state.serverIsDrive(saved.firstDrive(t, state.setIndex)) else null
+                val editable = !saved.serverPicked || (serving && state.canChooseServerPlayer)
+                Column(
+                    Modifier.offset(left + f(0.425f), top + f(py + 0.02f)).size(f(0.1f), f(0.21f)),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    listOf(true, false).forEach { drive ->
+                        PlayerBall(
+                            letter = if (drive) "D" else "R",
+                            active = activeDrive == drive,
+                            dim = saved.serverPicked && !serving,
+                            editable = editable,
+                            size = f(0.095f),
+                            fontSize = fs(0.055f),
+                            onClick = { onPickServer(t, drive) },
                         )
                     }
                 }
@@ -309,9 +323,9 @@ private fun ScoreScreen(
                     }
                 }
             }
-            if (!showBigToss) Placed(left + f(0.52f), top + f(py), f(0.42f), f(0.25f)) {
+            if (!showBigToss) Placed(left + f(0.53f), top + f(py), f(0.41f), f(0.25f)) {
                 // Antes de empezar: el primer toque en una mitad elige quién saca
-                val label = if (saved.serverPicked) state.pointLabel(t) else "¿SACA?"
+                val label = if (saved.serverPicked) state.pointLabel(t) else ""
                 Text(
                     label,
                     fontSize = fs(if (label.length > 3) 0.1f else if (label.length > 2) 0.2f else 0.26f),
@@ -672,5 +686,30 @@ private fun ChangeEndsOverlay(tieBreak: Boolean, onDismiss: () -> Unit) {
                 fontSize = fs(0.042f), fontWeight = FontWeight.Bold, color = Color(0xFF5A6070),
             )
         }
+    }
+}
+
+/** Pelota pequeña con la letra del jugador: amarilla si saca, blanca si no. */
+@Composable
+private fun PlayerBall(
+    letter: String,
+    active: Boolean,
+    dim: Boolean,
+    editable: Boolean,
+    size: Dp,
+    fontSize: TextUnit,
+    onClick: () -> Unit,
+) {
+    val bg = when {
+        active -> Gold
+        dim -> Color(0x40FFFFFF)
+        else -> Color(0xE6FFFFFF)
+    }
+    Box(
+        Modifier.size(size).clip(CircleShape).background(bg)
+            .then(if (editable) Modifier.clickable(onClick = onClick) else Modifier),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(letter, fontSize = fontSize, fontWeight = FontWeight.ExtraBold, color = if (dim) Color(0x99FFFFFF) else Color(0xFF1B2433))
     }
 }
