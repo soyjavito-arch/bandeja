@@ -90,4 +90,19 @@ class MatchTest {
         assertEquals(before, tb5.endChanges)
         assertEquals(before + 1, tb5.addPoint(Team.A).endChanges)
     }
+
+    @Test fun serverPlayerRotation() {
+        // A saca: turno 1 de A (D), B turno 1, A turno 2 (R)
+        var s = play(Rules())
+        assertTrue(s.serverIsDrive(true))
+        s = play(Rules(), Team.A to 4)
+        assertEquals(Team.B, s.server); assertEquals(1, s.serveTurnsB)
+        s = play(Rules(), Team.A to 8)
+        assertEquals(Team.A, s.server); assertEquals(2, s.serveTurnsA)
+        assertEquals(false, s.serverIsDrive(true))
+        // Tie-break: cada cambio de saque es un turno nuevo
+        val tb = play(Rules(), Team.A to 4 * 5, Team.B to 4 * 6, Team.A to 4)
+        val t1 = tb.addPoint(Team.A)
+        assertEquals(tb.serveTurns(t1.server) + 1, t1.serveTurns(t1.server))
+    }
 }

@@ -52,9 +52,23 @@ data class MatchState(
     val totalGames: Int = 0,
     /** Cambios de lado que tocan hasta ahora (crece cada vez que hay que cambiar). */
     val endChanges: Int = 0,
+    /** Turnos de saque que ha empezado cada pareja (incluido el actual). */
+    val serveTurnsA: Int = 0,
+    val serveTurnsB: Int = 0,
     val winner: Team? = null,
 ) {
     fun points(t: Team) = if (t == Team.A) pointsA else pointsB
+    fun serveTurns(t: Team) = if (t == Team.A) serveTurnsA else serveTurnsB
+
+    /** Aún no se ha jugado ningún punto del juego (o tramo de saque) actual. */
+    val atTurnStart: Boolean get() = pointsA == 0 && pointsB == 0
+
+    /**
+     * Qué jugador de la pareja que saca está sacando: los dos jugadores se turnan.
+     * firstIsDrive = el primer turno de la pareja lo sacó el de la derecha.
+     */
+    fun serverIsDrive(firstIsDrive: Boolean): Boolean =
+        (serveTurns(server) % 2 == 1) == firstIsDrive
     fun games(t: Team) = if (t == Team.A) gamesA else gamesB
     fun setsWon(t: Team) = sets.count { it.winner == t }
 
@@ -87,6 +101,16 @@ data class MatchState(
     }
 
     fun addPoint(t: Team): MatchState {
+        val r = addPointRaw(t)
+        if (r === this || r.isFinished) return r
+        // Nuevo turno de saque cuando cambia quien saca o empieza un juego nuevo.
+        val newTurn = r.server != server || r.totalGames != totalGames
+        if (!newTurn) return r
+        return if (r.server == Team.A) r.copy(serveTurnsA = r.serveTurnsA + 1)
+        else r.copy(serveTurnsB = r.serveTurnsB + 1)
+    }
+
+    private fun addPointRaw(t: Team): MatchState {
         if (isFinished) return this
         var pa = pointsA
         var pb = pointsB
@@ -173,6 +197,13 @@ data class MatchState(
 
     companion object {
         fun replay(rules: Rules, firstServer: Team, history: List<Team>): MatchState =
-            history.fold(MatchState(rules = rules, server = firstServer)) { s, t -> s.addPoint(t) }
+            history.fold(
+                MatchState(
+                    rules = rules,
+                    server = firstServer,
+                    serveTurnsA = if (firstServer == Team.A) 1 else 0,
+                    serveTurnsB = if (firstServer == Team.B) 1 else 0,
+                )
+            ) { s, t -> s.addPoint(t) }
     }
 }

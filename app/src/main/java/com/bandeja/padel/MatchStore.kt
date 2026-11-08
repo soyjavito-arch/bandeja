@@ -16,7 +16,16 @@ data class Saved(
     val serverChosen: Boolean = false,
     /** Cambios de lado ya vistos (el aviso sale hasta que se toca la pantalla). */
     val endChangesSeen: Int = 0,
+    /** En el primer turno de saque de cada pareja sacó el de la derecha (D) o el del revés (R). */
+    val firstDriveA: Boolean = true,
+    val firstDriveB: Boolean = true,
 ) {
+    fun firstDrive(t: Team) = if (t == Team.A) firstDriveA else firstDriveB
+
+    /** Cambia D/R del que saca ahora (solo tiene sentido antes del primer punto del juego). */
+    fun toggleServerPlayer(t: Team) =
+        if (t == Team.A) copy(firstDriveA = !firstDriveA) else copy(firstDriveB = !firstDriveB)
+
     val serverPicked: Boolean get() = serverChosen || history.isNotEmpty()
 
     val timerRunning: Boolean get() = timerStartedAt != 0L
@@ -53,6 +62,8 @@ class MatchStore(context: Context) {
             keepScreenOn = p.getBoolean("keepScreenOn", true),
             serverChosen = p.getBoolean("serverChosen", false),
             endChangesSeen = p.getInt("endChangesSeen", 0),
+            firstDriveA = p.getBoolean("firstDriveA", true),
+            firstDriveB = p.getBoolean("firstDriveB", true),
         )
     }
 
@@ -68,6 +79,8 @@ class MatchStore(context: Context) {
             .putBoolean("keepScreenOn", s.keepScreenOn)
             .putBoolean("serverChosen", s.serverChosen)
             .putInt("endChangesSeen", s.endChangesSeen)
+            .putBoolean("firstDriveA", s.firstDriveA)
+            .putBoolean("firstDriveB", s.firstDriveB)
             .apply()
     }
 }

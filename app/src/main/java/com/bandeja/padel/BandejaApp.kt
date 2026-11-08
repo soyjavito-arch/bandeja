@@ -131,6 +131,7 @@ fun BandejaApp(
                         onMenu = { showMenu = true },
                         onToss = { showToss = true },
                         bigToss = !tossDone,
+                        onToggleServerPlayer = { change(saved.toggleServerPlayer(state.server)) },
                     )
                     // Aviso de cambio de lado: se queda hasta que se toca la pantalla
                     if (state.endChanges > saved.endChangesSeen) {
@@ -181,6 +182,7 @@ private fun ScoreScreen(
     onMenu: () -> Unit,
     onToss: () -> Unit,
     bigToss: Boolean,
+    onToggleServerPlayer: () -> Unit,
 ) {
     val now = rememberNow()
     val showBigToss = bigToss && !saved.serverPicked
@@ -264,10 +266,26 @@ private fun ScoreScreen(
         Team.entries.forEach { t ->
             val gy = if (t == Team.A) 0.255f else 0.6f // fila de juegos
             val py = if (t == Team.A) 0.19f else 0.565f // puntos
-            // Pelota de saque, grande y justo a la izquierda de los puntos
+            // Pelota de saque con D (derecha) o R (revés). Al empezar cada juego se
+            // puede tocar para cambiar quién saca; con el primer punto se queda fija.
             if (saved.serverPicked && state.server == t && !showBigToss) {
-                Placed(left + f(0.375f), top + f(py + 0.065f), f(0.125f), f(0.125f)) {
-                    ServeBall(Modifier.size(f(0.115f)))
+                val drive = state.serverIsDrive(saved.firstDrive(t))
+                val editable = state.atTurnStart
+                Placed(left + f(0.355f), top + f(py + 0.05f), f(0.15f), f(0.15f)) {
+                    Box(
+                        Modifier.size(f(0.145f)).clip(CircleShape)
+                            .then(if (editable) Modifier.background(Color.White).padding(f(0.01f)) else Modifier)
+                            .then(if (editable) Modifier.clickable(onClick = onToggleServerPlayer) else Modifier),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        ServeBall(Modifier.fillMaxSize())
+                        Text(
+                            if (drive) "D" else "R",
+                            fontSize = fs(0.075f),
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF1B2433),
+                        )
+                    }
                 }
             }
             Box(
@@ -280,7 +298,7 @@ private fun ScoreScreen(
                         val won = set.winner == t
                         Text(
                             "$mine",
-                            fontSize = fs(if (set.superTieBreak) 0.08f else 0.115f),
+                            fontSize = fs(if (set.superTieBreak) 0.07f else 0.1f),
                             fontWeight = FontWeight.ExtraBold,
                             // Sets ya jugados más apagados que el set actual
                             color = if (won) Color(0xB3FFFFFF) else Color(0x66FFFFFF),
@@ -401,14 +419,15 @@ private class DialCutShape(
 private fun ServeBall(modifier: Modifier) {
     Canvas(modifier) {
         val w = this.size.width
-        val stroke = Stroke(width = w * 0.11f)
+        val stroke = Stroke(width = w * 0.06f)
+        val seam = Color.White.copy(alpha = 0.55f)
         drawCircle(Gold, radius = w / 2f)
         drawArc(
-            Color.White, startAngle = -60f, sweepAngle = 120f, useCenter = false,
+            seam, startAngle = -60f, sweepAngle = 120f, useCenter = false,
             topLeft = Offset(-w * 0.55f, w * 0.05f), size = Size(w * 0.9f, w * 0.9f), style = stroke,
         )
         drawArc(
-            Color.White, startAngle = 120f, sweepAngle = 120f, useCenter = false,
+            seam, startAngle = 120f, sweepAngle = 120f, useCenter = false,
             topLeft = Offset(w * 0.65f, w * 0.05f), size = Size(w * 0.9f, w * 0.9f), style = stroke,
         )
     }
