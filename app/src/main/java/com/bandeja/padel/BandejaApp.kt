@@ -156,7 +156,7 @@ private fun formatDuration(ms: Long): String {
     val h = total / 3600
     val m = (total % 3600) / 60
     val s = total % 60
-    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+    return if (h > 0) "%02d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
 }
 
 /**
@@ -230,14 +230,6 @@ private fun ScoreScreen(
         Placed(left, top + f(0.03f), s, f(0.13f)) {
             Text(clock.format(Date(now)), fontSize = fs(0.11f), fontWeight = FontWeight.Bold, color = Color.White)
         }
-        // Pulso abajo
-        Placed(left, top + f(0.845f), s, f(0.1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("♥", fontSize = fs(0.07f), color = RedText)
-                Spacer(Modifier.width(f(0.015f)))
-                Text(if (heartRate > 0) "$heartRate" else "--", fontSize = fs(0.088f), fontWeight = FontWeight.ExtraBold, color = Color.White)
-            }
-        }
         val info: String? = when {
             state.decidingLabel != null -> if (state.rules.deuceMode == DeuceMode.STAR_POINT) "STAR" else "ORO"
             state.superTieBreak -> "SUPER TB"
@@ -245,6 +237,20 @@ private fun ScoreScreen(
             !saved.serverPicked -> "¿QUIÉN SACA?"
             saved.history.isEmpty() -> "SACA ${teamName(state.server).uppercase()}"
             else -> null
+        }
+        // Aviso (punto de oro, tie-break...) debajo de la hora
+        if (info != null && !showBigToss) {
+            Placed(left, top + f(0.15f), s, f(0.06f)) {
+                Text(info, fontSize = fs(0.055f), fontWeight = FontWeight.ExtraBold, color = Gold, maxLines = 1)
+            }
+        }
+        // Pulso abajo
+        Placed(left, top + f(0.845f), s, f(0.1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("♥", fontSize = fs(0.08f), color = RedText)
+                Spacer(Modifier.width(f(0.015f)))
+                Text(if (heartRate > 0) "$heartRate" else "--", fontSize = fs(0.1f), fontWeight = FontWeight.ExtraBold, color = Color.White)
+            }
         }
 
         // Juegos por set y puntos de cada pareja
@@ -334,7 +340,7 @@ private fun ScoreScreen(
                     Text("SORTEO", fontSize = fs(0.065f), fontWeight = FontWeight.ExtraBold, color = Color.Black)
                 }
             }
-        } else Placed(left + f(0.17f), top + f(0.44f), f(0.58f), f(0.12f)) {
+        } else Placed(left + f(0.19f), top + f(0.44f), f(0.62f), f(0.12f), align = Alignment.CenterStart) {
             Row(
                 Modifier.clip(RoundedCornerShape(f(0.045f))).background(if (deciding) Gold else Color(0xF00B1020))
                     .padding(horizontal = f(0.03f), vertical = f(0.008f)),
@@ -348,19 +354,19 @@ private fun ScoreScreen(
                 Text("⏱", fontSize = fs(0.07f), color = timerColor)
                 Spacer(Modifier.width(f(0.012f)))
                 Text(formatDuration(saved.elapsedMs(now)), fontSize = fs(0.095f), fontWeight = FontWeight.ExtraBold, color = timerColor)
-                if (info != null) {
-                    Spacer(Modifier.width(f(0.02f)))
-                    Text(info, fontSize = fs(0.06f), fontWeight = FontWeight.ExtraBold, color = if (deciding) Color.Black else Gold, maxLines = 1)
-                }
             }
         }
     }
 }
 
-/** Caja colocada en una posición absoluta con el contenido centrado. */
+/** Caja colocada en una posición absoluta (contenido centrado salvo que se indique otra cosa). */
 @Composable
-private fun Placed(x: Dp, y: Dp, w: Dp, h: Dp, content: @Composable BoxScope.() -> Unit) {
-    Box(Modifier.offset(x, y).size(w, h), contentAlignment = Alignment.Center, content = content)
+private fun Placed(
+    x: Dp, y: Dp, w: Dp, h: Dp,
+    align: Alignment = Alignment.Center,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    Box(Modifier.offset(x, y).size(w, h), contentAlignment = align, content = content)
 }
 
 /** Rectángulo (opcionalmente redondeado) recortado por el círculo de la esfera. */
