@@ -1,0 +1,7 @@
+<resources>
+    <!-- Sin deslizar para salir: así no se cierra el marcador sin querer en mitad del partido. -->
+    <style name="Theme.Bandeja" parent="@android:style/Theme.DeviceDefault">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowSwipeToDismiss">false</item>
+    </style>
+</resources>

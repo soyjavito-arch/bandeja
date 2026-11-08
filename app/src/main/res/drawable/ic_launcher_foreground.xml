@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Pala de pádel inclinada -->
+    <group android:rotation="-35" android:pivotX="54" android:pivotY="54">
+        <path android:fillColor="#FF4A86FF"
+            android:pathData="M54,24 C66,24 72,33 72,45 C72,56 64,63 58,66 L58,74 L50,74 L50,66 C44,63 36,56 36,45 C36,33 42,24 54,24 Z" />
+        <path android:fillColor="#FFFF5F66" android:pathData="M50,72 L58,72 L58,86 Q54,88 50,86 Z" />
+        <path android:fillColor="#FF16233F" android:pathData="M48,38 m-2.2,0 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0" />
+        <path android:fillColor="#FF16233F" android:pathData="M60,38 m-2.2,0 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0" />
+        <path android:fillColor="#FF16233F" android:pathData="M54,46 m-2.2,0 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0" />
+        <path android:fillColor="#FF16233F" android:pathData="M48,54 m-2.2,0 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0" />
+        <path android:fillColor="#FF16233F" android:pathData="M60,54 m-2.2,0 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0" />
+    </group>
+    <!-- Pelota -->
+    <path android:fillColor="#FFFFC93C" android:pathData="M74,72 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+</vector>
