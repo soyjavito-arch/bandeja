@@ -271,7 +271,7 @@ private fun ScoreScreen(
             if (saved.serverPicked && state.server == t && !showBigToss) {
                 val drive = state.serverIsDrive(saved.firstDrive(t, state.setIndex))
                 val editable = state.canChooseServerPlayer
-                Placed(left + f(0.375f), top + f(py + 0.05f), f(0.15f), f(0.15f)) {
+                Placed(left + f(0.4f), top + f(py + 0.05f), f(0.15f), f(0.15f)) {
                     Box(
                         Modifier.size(f(0.145f)).clip(CircleShape)
                             .then(if (editable) Modifier.background(Color.White).padding(f(0.01f)) else Modifier)
@@ -309,7 +309,7 @@ private fun ScoreScreen(
                     }
                 }
             }
-            if (!showBigToss) Placed(left + f(0.5f), top + f(py), f(0.42f), f(0.25f)) {
+            if (!showBigToss) Placed(left + f(0.52f), top + f(py), f(0.42f), f(0.25f)) {
                 // Antes de empezar: el primer toque en una mitad elige quién saca
                 val label = if (saved.serverPicked) state.pointLabel(t) else "¿SACA?"
                 Text(
