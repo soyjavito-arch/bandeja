@@ -123,7 +123,7 @@ fun BandejaApp(
                 val state = saved.state()
                 if (state.isFinished) {
                     FinishedScreen(saved, state, onUndo, onNew = {
-                        change(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false, endChangesSeen = 0))
+                        change(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false, endChangesSeen = 0, orderA = "", orderB = ""))
                     })
                 } else {
                     ScoreScreen(
@@ -131,7 +131,7 @@ fun BandejaApp(
                         onMenu = { showMenu = true },
                         onToss = { showToss = true },
                         bigToss = !tossDone,
-                        onToggleServerPlayer = { change(saved.toggleServerPlayer(state.server)) },
+                        onToggleServerPlayer = { change(saved.toggleServerPlayer(state.server, state.setIndex)) },
                     )
                     // Aviso de cambio de lado: se queda hasta que se toca la pantalla
                     if (state.endChanges > saved.endChangesSeen) {
@@ -269,8 +269,8 @@ private fun ScoreScreen(
             // Pelota de saque con D (derecha) o R (revés). Al empezar cada juego se
             // puede tocar para cambiar quién saca; con el primer punto se queda fija.
             if (saved.serverPicked && state.server == t && !showBigToss) {
-                val drive = state.serverIsDrive(saved.firstDrive(t))
-                val editable = state.atTurnStart
+                val drive = state.serverIsDrive(saved.firstDrive(t, state.setIndex))
+                val editable = state.canChooseServerPlayer
                 Placed(left + f(0.355f), top + f(py + 0.05f), f(0.15f), f(0.15f)) {
                     Box(
                         Modifier.size(f(0.145f)).clip(CircleShape)
@@ -493,7 +493,7 @@ private fun MenuScreen(saved: Saved, onChange: (Saved) -> Unit, onClose: () -> U
                 highlight = true,
             ) {
                 if (confirmNew) {
-                    onChange(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false, endChangesSeen = 0))
+                    onChange(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false, endChangesSeen = 0, orderA = "", orderB = ""))
                     onClose()
                 } else confirmNew = true
             }

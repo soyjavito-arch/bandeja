@@ -52,7 +52,7 @@ data class MatchState(
     val totalGames: Int = 0,
     /** Cambios de lado que tocan hasta ahora (crece cada vez que hay que cambiar). */
     val endChanges: Int = 0,
-    /** Turnos de saque que ha empezado cada pareja (incluido el actual). */
+    /** Turnos de saque que ha empezado cada pareja en el set actual (incluido el actual). */
     val serveTurnsA: Int = 0,
     val serveTurnsB: Int = 0,
     val winner: Team? = null,
@@ -60,12 +60,19 @@ data class MatchState(
     fun points(t: Team) = if (t == Team.A) pointsA else pointsB
     fun serveTurns(t: Team) = if (t == Team.A) serveTurnsA else serveTurnsB
 
-    /** Aún no se ha jugado ningún punto del juego (o tramo de saque) actual. */
-    val atTurnStart: Boolean get() = pointsA == 0 && pointsB == 0
+    /** Número del set que se está jugando (0 = primero). */
+    val setIndex: Int get() = sets.size
+
+    /**
+     * Cada pareja elige quién saca primero solo en su primer juego de saque de cada set
+     * y antes de jugar el primer punto. Después el orden es fijo hasta acabar el set.
+     */
+    val canChooseServerPlayer: Boolean
+        get() = !isFinished && pointsA == 0 && pointsB == 0 && serveTurns(server) == 1
 
     /**
      * Qué jugador de la pareja que saca está sacando: los dos jugadores se turnan.
-     * firstIsDrive = el primer turno de la pareja lo sacó el de la derecha.
+     * firstIsDrive = en su primer turno del set sacó el de la derecha.
      */
     fun serverIsDrive(firstIsDrive: Boolean): Boolean =
         (serveTurns(server) % 2 == 1) == firstIsDrive
@@ -184,6 +191,7 @@ data class MatchState(
         val wb = newSets.count { it.winner == Team.B }
         val base = copy(
             pointsA = 0, pointsB = 0, gamesA = 0, gamesB = 0, deuces = 0, sets = newSets,
+            serveTurnsA = 0, serveTurnsB = 0, // en cada set nuevo se vuelve a elegir el orden
             server = nextServer, tieBreak = false, superTieBreak = false,
         )
         if (wa >= rules.setsToWin) return base.copy(winner = Team.A)

@@ -105,4 +105,16 @@ class MatchTest {
         val t1 = tb.addPoint(Team.A)
         assertEquals(tb.serveTurns(t1.server) + 1, t1.serveTurns(t1.server))
     }
+
+    @Test fun serverChoicePerSet() {
+        // Se puede elegir en el primer juego de saque de cada pareja
+        assertTrue(play(Rules()).canChooseServerPlayer)
+        assertTrue(play(Rules(), Team.A to 4).canChooseServerPlayer)
+        // Tercer juego (segundo turno de A): ya no
+        assertEquals(false, play(Rules(), Team.A to 8).canChooseServerPlayer)
+        // Nuevo set: se vuelve a poder elegir
+        val set2 = play(Rules(), Team.A to 24)
+        assertEquals(1, set2.setIndex)
+        assertTrue(set2.canChooseServerPlayer)
+    }
 }

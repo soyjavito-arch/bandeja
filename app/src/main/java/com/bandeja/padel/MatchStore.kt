@@ -16,15 +16,22 @@ data class Saved(
     val serverChosen: Boolean = false,
     /** Cambios de lado ya vistos (el aviso sale hasta que se toca la pantalla). */
     val endChangesSeen: Int = 0,
-    /** En el primer turno de saque de cada pareja sacó el de la derecha (D) o el del revés (R). */
-    val firstDriveA: Boolean = true,
-    val firstDriveB: Boolean = true,
+    /**
+     * Quién sacó primero en cada set, por pareja: una letra por set,
+     * 'D' (jugador de la derecha) o 'R' (jugador del revés).
+     */
+    val orderA: String = "",
+    val orderB: String = "",
 ) {
-    fun firstDrive(t: Team) = if (t == Team.A) firstDriveA else firstDriveB
+    fun firstDrive(t: Team, set: Int): Boolean =
+        (if (t == Team.A) orderA else orderB).getOrElse(set) { 'D' } == 'D'
 
-    /** Cambia D/R del que saca ahora (solo tiene sentido antes del primer punto del juego). */
-    fun toggleServerPlayer(t: Team) =
-        if (t == Team.A) copy(firstDriveA = !firstDriveA) else copy(firstDriveB = !firstDriveB)
+    /** Cambia D/R del primer saque de la pareja en ese set. */
+    fun toggleServerPlayer(t: Team, set: Int): Saved {
+        val cur = (if (t == Team.A) orderA else orderB).padEnd(set + 1, 'D')
+        val flipped = cur.substring(0, set) + (if (cur[set] == 'D') 'R' else 'D') + cur.substring(set + 1)
+        return if (t == Team.A) copy(orderA = flipped) else copy(orderB = flipped)
+    }
 
     val serverPicked: Boolean get() = serverChosen || history.isNotEmpty()
 
@@ -62,8 +69,8 @@ class MatchStore(context: Context) {
             keepScreenOn = p.getBoolean("keepScreenOn", true),
             serverChosen = p.getBoolean("serverChosen", false),
             endChangesSeen = p.getInt("endChangesSeen", 0),
-            firstDriveA = p.getBoolean("firstDriveA", true),
-            firstDriveB = p.getBoolean("firstDriveB", true),
+            orderA = p.getString("orderA", "") ?: "",
+            orderB = p.getString("orderB", "") ?: "",
         )
     }
 
@@ -79,8 +86,8 @@ class MatchStore(context: Context) {
             .putBoolean("keepScreenOn", s.keepScreenOn)
             .putBoolean("serverChosen", s.serverChosen)
             .putInt("endChangesSeen", s.endChangesSeen)
-            .putBoolean("firstDriveA", s.firstDriveA)
-            .putBoolean("firstDriveB", s.firstDriveB)
+            .putString("orderA", s.orderA)
+            .putString("orderB", s.orderB)
             .apply()
     }
 }
