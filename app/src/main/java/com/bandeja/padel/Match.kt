@@ -48,6 +48,10 @@ data class MatchState(
     val tieBreakFirstServer: Team = Team.A,
     /** Veces que se ha llegado a 40-40 en el juego actual. */
     val deuces: Int = 0,
+    /** Juegos jugados en todo el partido (un tie-break cuenta como un juego). */
+    val totalGames: Int = 0,
+    /** Cambios de lado que tocan hasta ahora (crece cada vez que hay que cambiar). */
+    val endChanges: Int = 0,
     val winner: Team? = null,
 ) {
     fun points(t: Team) = if (t == Team.A) pointsA else pointsB
@@ -96,7 +100,9 @@ data class MatchState(
             // En el tie-break el saque cambia tras el 1er punto y luego cada 2.
             val played = pa + pb
             val newServer = if (played % 2 == 1) server.other else server
-            return copy(pointsA = pa, pointsB = pb, server = newServer)
+            // En el tie-break se cambia de lado cada 6 puntos.
+            val change = if (played % 6 == 0) 1 else 0
+            return copy(pointsA = pa, pointsB = pb, server = newServer, endChanges = endChanges + change)
         }
 
         if (isDecidingPoint) return winGame(t)
@@ -107,7 +113,15 @@ data class MatchState(
         return copy(pointsA = pa, pointsB = pb, deuces = d)
     }
 
-    private fun winGame(t: Team): MatchState {
+    /** Suma un juego al total del partido; se cambia de lado cuando el total es impar. */
+    private fun countGame(): MatchState {
+        val total = totalGames + 1
+        return copy(totalGames = total, endChanges = endChanges + if (total % 2 == 1) 1 else 0)
+    }
+
+    private fun winGame(t: Team): MatchState = countGame().winGameCounted(t)
+
+    private fun winGameCounted(t: Team): MatchState {
         val ga = gamesA + if (t == Team.A) 1 else 0
         val gb = gamesB + if (t == Team.B) 1 else 0
         val g = if (t == Team.A) ga else gb
@@ -126,7 +140,10 @@ data class MatchState(
         return copy(pointsA = 0, pointsB = 0, gamesA = ga, gamesB = gb, deuces = 0, server = nextServer)
     }
 
-    private fun winTieBreak(t: Team, pa: Int, pb: Int): MatchState {
+    private fun winTieBreak(t: Team, pa: Int, pb: Int): MatchState =
+        countGame().winTieBreakCounted(t, pa, pb)
+
+    private fun winTieBreakCounted(t: Team, pa: Int, pb: Int): MatchState {
         // Tras un tie-break saca primero quien restó al inicio del tie-break.
         val nextServer = tieBreakFirstServer.other
         val set = if (superTieBreak) {

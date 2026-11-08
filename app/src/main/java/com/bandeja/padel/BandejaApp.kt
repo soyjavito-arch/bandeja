@@ -123,7 +123,7 @@ fun BandejaApp(
                 val state = saved.state()
                 if (state.isFinished) {
                     FinishedScreen(saved, state, onUndo, onNew = {
-                        change(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false))
+                        change(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false, endChangesSeen = 0))
                     })
                 } else {
                     ScoreScreen(
@@ -132,6 +132,13 @@ fun BandejaApp(
                         onToss = { showToss = true },
                         bigToss = !tossDone,
                     )
+                    // Aviso de cambio de lado: se queda hasta que se toca la pantalla
+                    if (state.endChanges > saved.endChangesSeen) {
+                        ChangeEndsOverlay(
+                            tieBreak = state.tieBreak,
+                            onDismiss = { change(saved.copy(endChangesSeen = state.endChanges)) },
+                        )
+                    }
                 }
             }
         }
@@ -156,7 +163,7 @@ private fun formatDuration(ms: Long): String {
     val h = total / 3600
     val m = (total % 3600) / 60
     val s = total % 60
-    return if (h > 0) "%02d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+    return "%02d:%02d:%02d".format(h, m, s)
 }
 
 /**
@@ -341,7 +348,7 @@ private fun ScoreScreen(
                     Text("SORTEO", fontSize = fs(0.065f), fontWeight = FontWeight.ExtraBold, color = Color.Black)
                 }
             }
-        } else Placed(left + f(0.19f), top + f(0.44f), f(0.62f), f(0.12f), align = Alignment.CenterStart) {
+        } else Placed(left + f(0.19f), top + f(0.44f), f(0.62f), f(0.12f)) {
             Row(
                 Modifier.clip(RoundedCornerShape(f(0.045f))).background(if (deciding) Gold else Color(0xF00B1020))
                     .padding(horizontal = f(0.03f), vertical = f(0.008f)),
@@ -467,7 +474,7 @@ private fun MenuScreen(saved: Saved, onChange: (Saved) -> Unit, onClose: () -> U
                 highlight = true,
             ) {
                 if (confirmNew) {
-                    onChange(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false))
+                    onChange(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false, endChangesSeen = 0))
                     onClose()
                 } else confirmNew = true
             }
@@ -617,6 +624,34 @@ private fun CoinTossScreen(onClose: () -> Unit) {
                         .padding(horizontal = f(0.04f), vertical = f(0.02f)),
                 ) { Text("Listo", fontSize = fs(0.055f), fontWeight = FontWeight.Bold, color = Color.Black) }
             }
+        }
+    }
+}
+
+/** Pantalla de "cambio de lado": tapa todo y se quita con un toque. */
+@Composable
+private fun ChangeEndsOverlay(tieBreak: Boolean, onDismiss: () -> Unit) {
+    val density = LocalDensity.current
+    BoxWithConstraints(
+        Modifier.fillMaxSize().background(Color(0xE6000000)).clickable(onClick = onDismiss),
+        contentAlignment = Alignment.Center,
+    ) {
+        val s = if (maxWidth < maxHeight) maxWidth else maxHeight
+        fun f(x: Float): Dp = s * x
+        fun fs(x: Float): TextUnit = with(density) { (s * x).toSp() }
+        Column(
+            Modifier.size(f(0.66f)).clip(CircleShape).background(Color(0xFFF2F4F7)),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text("↔", fontSize = fs(0.16f), fontWeight = FontWeight.Bold, color = Color(0xFF0F5A40))
+            Text("CAMBIO", fontSize = fs(0.085f), fontWeight = FontWeight.ExtraBold, color = Color.Black)
+            Text("DE LADO", fontSize = fs(0.085f), fontWeight = FontWeight.ExtraBold, color = Color.Black)
+            Spacer(Modifier.height(f(0.015f)))
+            Text(
+                if (tieBreak) "tie-break · toca para seguir" else "toca para seguir",
+                fontSize = fs(0.042f), fontWeight = FontWeight.Bold, color = Color(0xFF5A6070),
+            )
         }
     }
 }

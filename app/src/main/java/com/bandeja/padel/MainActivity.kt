@@ -85,6 +85,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         update(next)
         when {
             after.isFinished -> vibrate(longArrayOf(0, 200, 120, 200, 120, 400))
+            after.endChanges > before.endChanges -> vibrate(longArrayOf(0, 400, 150, 400))
             after.isDecidingPoint && !before.isDecidingPoint ->
                 vibrate(longArrayOf(0, 80, 70, 80, 70, 80, 70, 250))
             after.sets.size > before.sets.size -> vibrate(longArrayOf(0, 150, 100, 150))
@@ -105,6 +106,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
         val wasFinished = cur.state().isFinished
         var next = cur.copy(history = cur.history.dropLast(1))
+        next = next.copy(endChangesSeen = minOf(next.endChangesSeen, next.state().endChanges))
         if (wasFinished) next = next.startTimer(System.currentTimeMillis())
         update(next)
         vibrate(longArrayOf(0, 20, 60, 20))

@@ -14,6 +14,8 @@ data class Saved(
     val keepScreenOn: Boolean = true,
     /** Ya se ha elegido quién saca (con el primer toque del partido). */
     val serverChosen: Boolean = false,
+    /** Cambios de lado ya vistos (el aviso sale hasta que se toca la pantalla). */
+    val endChangesSeen: Int = 0,
 ) {
     val serverPicked: Boolean get() = serverChosen || history.isNotEmpty()
 
@@ -50,6 +52,7 @@ class MatchStore(context: Context) {
             timerAccumMs = p.getLong("timerAccumMs", 0L),
             keepScreenOn = p.getBoolean("keepScreenOn", true),
             serverChosen = p.getBoolean("serverChosen", false),
+            endChangesSeen = p.getInt("endChangesSeen", 0),
         )
     }
 
@@ -64,6 +67,7 @@ class MatchStore(context: Context) {
             .putLong("timerAccumMs", s.timerAccumMs)
             .putBoolean("keepScreenOn", s.keepScreenOn)
             .putBoolean("serverChosen", s.serverChosen)
+            .putInt("endChangesSeen", s.endChangesSeen)
             .apply()
     }
 }

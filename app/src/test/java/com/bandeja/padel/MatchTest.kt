@@ -73,4 +73,21 @@ class MatchTest {
         s = s.addPoint(Team.B)
         assertEquals(1, s.gamesB); assertEquals(0, s.deuces)
     }
+
+    @Test fun changeOfEnds() {
+        // Tras el primer juego se cambia de lado
+        assertEquals(1, play(Rules(), Team.A to 4).endChanges)
+        assertEquals(1, play(Rules(), Team.A to 8).endChanges)
+        assertEquals(2, play(Rules(), Team.A to 12).endChanges)
+        // 6-3 = 9 juegos: cambios tras los juegos 1, 3, 5, 7 y 9
+        val s63 = play(Rules(), Team.A to 4 * 6, Team.B to 4 * 3)
+        assertEquals(5, s63.endChanges)
+        // Tie-break: cambio cada 6 puntos
+        val tb = play(Rules(), Team.A to 4 * 5, Team.B to 4 * 6, Team.A to 4)
+        assertTrue(tb.tieBreak)
+        val before = tb.endChanges
+        val tb5 = (1..5).fold(tb) { x, i -> x.addPoint(if (i % 2 == 0) Team.A else Team.B) }
+        assertEquals(before, tb5.endChanges)
+        assertEquals(before + 1, tb5.addPoint(Team.A).endChanges)
+    }
 }
