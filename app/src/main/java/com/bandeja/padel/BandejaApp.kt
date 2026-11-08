@@ -2,6 +2,20 @@ package com.bandeja.padel
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +46,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -112,6 +126,11 @@ private fun formatDuration(ms: Long): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
 }
 
+/**
+ * Pantalla del marcador: la esfera se parte en dos mitades (azul arriba, rojo abajo).
+ * Tocar una mitad suma el punto a esa pareja. Todo se coloca en fracciones del
+ * diámetro de la esfera (s) para aprovechar toda la pantalla redonda.
+ */
 @Composable
 private fun ScoreScreen(
     saved: Saved,
@@ -122,104 +141,147 @@ private fun ScoreScreen(
     onMenu: () -> Unit,
 ) {
     val now = rememberNow()
-    val screen = LocalConfiguration.current.screenWidthDp
-    val btn = (screen * 0.34f).dp
     val clock = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val density = LocalDensity.current
 
-    Column(
-        Modifier.fillMaxSize().padding(top = (screen * 0.045f).dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        // Hora
-        Text(clock.format(Date(now)), fontSize = 14.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-        // Pulso y cronómetro
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("♥", fontSize = 10.sp, lineHeight = 13.sp, color = RedText)
-            Spacer(Modifier.width(2.dp))
-            Text(if (heartRate > 0) "$heartRate" else "--", fontSize = 11.sp, lineHeight = 13.sp, color = Color.White)
-            Spacer(Modifier.width(10.dp))
-            Text(
-                "⏱ " + formatDuration(saved.elapsedMs(now)),
-                fontSize = 11.sp,
-                lineHeight = 13.sp,
-                color = if (saved.timerRunning) Color.White else Dim,
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val s = if (maxWidth < maxHeight) maxWidth else maxHeight
+        val left = (maxWidth - s) / 2
+        val top = (maxHeight - s) / 2
+        fun f(x: Float): Dp = s * x
+        // Tamaño de letra fijo respecto a la esfera (no depende del tamaño de fuente del sistema).
+        fun fs(x: Float): TextUnit = with(density) { (s * x).toSp() }
+
+        // Las dos mitades (son los botones de punto)
+        Team.entries.forEach { t ->
+            val y0 = if (t == Team.A) 0f else 0.5f
+            val shape = with(density) {
+                DialCutShape(
+                    offX = 0f,
+                    offY = f(y0).toPx(),
+                    center = (s / 2).toPx(),
+                    radius = (s / 2).toPx(),
+                    corner = 0f,
+                )
+            }
+            val brush = if (t == Team.A) Brush.verticalGradient(listOf(BlueBottom, BlueTop))
+            else Brush.verticalGradient(listOf(RedTop, RedBottom))
+            Box(
+                Modifier.offset(left, top + f(y0)).size(s, f(0.5f))
+                    .clip(shape).background(brush).clickable { onPoint(t) }
             )
         }
-        // Juegos del set actual
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("${state.gamesA}", fontSize = 24.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, color = BlueText)
-            Text("  -  ", fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Text("${state.gamesB}", fontSize = 24.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, color = RedText)
-        }
-        // Línea de info: punto decisivo, tie-break o sets anteriores
-        val info: Pair<String, Color> = when {
-            state.decidingLabel != null -> state.decidingLabel!! to Gold
-            state.superTieBreak -> "SUPER TIE-BREAK" to Gold
-            state.tieBreak -> "TIE-BREAK" to Gold
-            state.sets.isNotEmpty() -> state.sets.joinToString("   ") {
-                if (it.superTieBreak) "[${it.a}-${it.b}]" else "${it.a}-${it.b}"
-            } to Dim
-            saved.history.isEmpty() -> "Saca ${teamName(state.server)}" to Dim
-            else -> "" to Dim
-        }
-        Text(info.first, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold, color = info.second, maxLines = 1)
-        Spacer(Modifier.height(2.dp))
 
-        // Botones de punto
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Team.entries.forEach { t ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    SetDots(won = state.setsWon(t), total = state.rules.setsToWin)
-                    Spacer(Modifier.height(4.dp))
-                    PointButton(
-                        label = state.pointLabel(t),
-                        team = t,
-                        serving = state.server == t,
-                        size = btn,
-                        onClick = { onPoint(t) },
-                    )
+        // Hora y, debajo, el pulso
+        Placed(left, top + f(0.025f), s, f(0.125f)) {
+            Text(clock.format(Date(now)), fontSize = fs(0.11f), fontWeight = FontWeight.Bold, color = Color.White)
+        }
+        Placed(left, top + f(0.14f), s, f(0.095f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("♥", fontSize = fs(0.07f), color = RedText)
+                Spacer(Modifier.width(f(0.015f)))
+                Text(if (heartRate > 0) "$heartRate" else "--", fontSize = fs(0.088f), fontWeight = FontWeight.ExtraBold, color = Color.White)
+            }
+        }
+        val info: String? = when {
+            state.decidingLabel != null -> state.decidingLabel
+            state.superTieBreak -> "SUPER TB"
+            state.tieBreak -> "TIE-BREAK"
+            saved.history.isEmpty() -> "SACA ${teamName(state.server).uppercase()}"
+            else -> null
+        }
+
+        // Juegos por set y puntos de cada pareja
+        Team.entries.forEach { t ->
+            val gy = if (t == Team.A) 0.255f else 0.615f // fila de juegos
+            val py = if (t == Team.A) 0.19f else 0.565f // puntos
+            if (state.server == t) {
+                Placed(left + f(0.085f), top + f(gy + 0.03f), f(0.08f), f(0.08f)) {
+                    ServeBall(Modifier.size(f(0.075f)))
+                }
+            }
+            Box(
+                Modifier.offset(left + f(0.18f), top + f(gy)).size(f(0.34f), f(0.14f)),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(f(0.025f)), verticalAlignment = Alignment.CenterVertically) {
+                    state.sets.forEach { set ->
+                        val mine = if (t == Team.A) set.a else set.b
+                        val won = set.winner == t
+                        Text(
+                            "$mine",
+                            fontSize = fs(if (set.superTieBreak) 0.08f else 0.115f),
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (won) Color.White else Color(0x99FFFFFF),
+                        )
+                    }
+                    if (!state.superTieBreak || state.sets.isEmpty()) {
+                        Text("${state.games(t)}", fontSize = fs(0.13f), fontWeight = FontWeight.ExtraBold, color = Gold)
+                    }
+                }
+            }
+            Placed(left + f(0.49f), top + f(py), f(0.44f), f(0.25f)) {
+                val label = state.pointLabel(t)
+                Text(
+                    label,
+                    fontSize = fs(if (label.length > 2) 0.23f else 0.30f),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontStyle = FontStyle.Italic,
+                    color = Color.White,
+                    maxLines = 1,
+                )
+            }
+        }
+
+        // Franja central: deshacer, cronómetro + pulso, menú
+        Box(Modifier.offset(left, top + f(0.5f) - 1.dp).size(s, 2.dp).background(Color(0x55FFFFFF)))
+        Placed(left + f(0.045f), top + f(0.44f), f(0.12f), f(0.12f)) {
+            RoundIconButton("↶", f(0.12f), fs(0.075f), enabled = saved.history.isNotEmpty(), onClick = onUndo)
+        }
+        Placed(left + f(0.835f), top + f(0.44f), f(0.12f), f(0.12f)) {
+            RoundIconButton("⋯", f(0.12f), fs(0.075f), enabled = true, onClick = onMenu)
+        }
+        Placed(left + f(0.17f), top + f(0.45f), f(0.66f), f(0.1f)) {
+            Row(
+                Modifier.clip(RoundedCornerShape(f(0.045f))).background(Color(0xF00B1020))
+                    .padding(horizontal = f(0.03f), vertical = f(0.008f)),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val timerColor = if (saved.timerRunning) Gold else Dim
+                Text("⏱", fontSize = fs(0.055f), color = timerColor)
+                Spacer(Modifier.width(f(0.012f)))
+                Text(formatDuration(saved.elapsedMs(now)), fontSize = fs(0.07f), fontWeight = FontWeight.ExtraBold, color = timerColor)
+                if (info != null) {
+                    Spacer(Modifier.width(f(0.03f)))
+                    Text(info, fontSize = fs(0.042f), fontWeight = FontWeight.ExtraBold, color = Gold, maxLines = 1)
                 }
             }
         }
-        Spacer(Modifier.height(5.dp))
-        // Deshacer y menú
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            RoundIconButton("↶", enabled = saved.history.isNotEmpty(), onClick = onUndo)
-            RoundIconButton("⋯", enabled = true, onClick = onMenu)
-        }
     }
 }
 
+/** Caja colocada en una posición absoluta con el contenido centrado. */
 @Composable
-private fun SetDots(won: Int, total: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        repeat(total) { i ->
-            Box(
-                Modifier.size(7.dp).clip(CircleShape)
-                    .background(if (i < won) Gold else Color(0xFF4A4E55))
-            )
-        }
-    }
+private fun Placed(x: Dp, y: Dp, w: Dp, h: Dp, content: @Composable BoxScope.() -> Unit) {
+    Box(Modifier.offset(x, y).size(w, h), contentAlignment = Alignment.Center, content = content)
 }
 
-@Composable
-private fun PointButton(label: String, team: Team, serving: Boolean, size: Dp, onClick: () -> Unit) {
-    val brush = if (team == Team.A) Brush.verticalGradient(listOf(BlueTop, BlueBottom))
-    else Brush.verticalGradient(listOf(RedTop, RedBottom))
-    Box(
-        Modifier.size(size).clip(RoundedCornerShape(size * 0.26f)).background(brush).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            label,
-            fontSize = (size.value * if (label.length > 2) 0.36f else 0.46f).sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color.White,
-            textAlign = TextAlign.Center,
-        )
-        if (serving) {
-            ServeBall(Modifier.align(Alignment.TopStart).padding(7.dp).size(size * 0.18f))
+/** Rectángulo (opcionalmente redondeado) recortado por el círculo de la esfera. */
+private class DialCutShape(
+    private val offX: Float,
+    private val offY: Float,
+    private val center: Float,
+    private val radius: Float,
+    private val corner: Float,
+) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val rect = Path().apply {
+            addRoundRect(RoundRect(0f, 0f, size.width, size.height, CornerRadius(corner, corner)))
         }
+        val cx = center - offX
+        val cy = center - offY
+        val circle = Path().apply { addOval(Rect(cx - radius, cy - radius, cx + radius, cy + radius)) }
+        return Outline.Generic(Path.combine(PathOperation.Intersect, rect, circle))
     }
 }
 
@@ -242,13 +304,19 @@ private fun ServeBall(modifier: Modifier) {
 }
 
 @Composable
-private fun RoundIconButton(symbol: String, enabled: Boolean, onClick: () -> Unit) {
+private fun RoundIconButton(
+    symbol: String,
+    size: Dp = 38.dp,
+    fontSize: TextUnit = 20.sp,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
     Box(
-        Modifier.size(34.dp).clip(CircleShape).background(ButtonDark)
+        Modifier.size(size).clip(CircleShape).background(ButtonDark)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(symbol, fontSize = 18.sp, color = if (enabled) Color.White else Color(0xFF5A5E66))
+        Text(symbol, fontSize = fontSize, fontWeight = FontWeight.Bold, color = if (enabled) Color.White else Color(0xFF5A5E66))
     }
 }
 
@@ -260,13 +328,13 @@ private fun FinishedScreen(saved: Saved, state: MatchState, onUndo: () -> Unit, 
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("¡Gana ${teamName(w)}!", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = teamColor(w))
+        Text("¡Gana ${teamName(w)}!", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = teamColor(w))
         Spacer(Modifier.height(6.dp))
         Text(
             state.sets.joinToString("   ") { if (it.superTieBreak) "[${it.a}-${it.b}]" else "${it.a}-${it.b}" },
-            fontSize = 18.sp, color = Color.White,
+            fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White,
         )
-        Text("⏱ " + formatDuration(saved.elapsedMs(System.currentTimeMillis())), fontSize = 13.sp, color = Dim)
+        Text("⏱ " + formatDuration(saved.elapsedMs(System.currentTimeMillis())), fontSize = 16.sp, color = Dim)
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             RoundIconButton("↶", enabled = true, onClick = onUndo)
