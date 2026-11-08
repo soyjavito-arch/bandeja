@@ -74,10 +74,10 @@ import java.util.Locale
 import kotlin.random.Random
 
 // Colores propios de Bandeja
-private val BlueTop = Color(0xFF4A86FF)
-private val BlueBottom = Color(0xFF1C47C9)
-private val RedTop = Color(0xFFFF5F66)
-private val RedBottom = Color(0xFFC4223A)
+private val BlueTop = Color(0xFF16357F)
+private val BlueBottom = Color(0xFF081633)
+private val RedTop = Color(0xFF7A1726)
+private val RedBottom = Color(0xFF2E070D)
 private val BlueText = Color(0xFF5B95FF)
 private val RedText = Color(0xFFFF6B72)
 private val Gold = Color(0xFFFFC93C)
