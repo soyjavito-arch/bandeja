@@ -97,14 +97,24 @@ fun BandejaApp(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showToss by remember { mutableStateOf(false) }
+    // Al empezar un partido el botón de sorteo sale en grande hasta que se usa.
+    var tossDone by remember { mutableStateOf(false) }
+    val change: (Saved) -> Unit = { n ->
+        if (n.history.isEmpty() && !n.serverChosen && saved.history.isNotEmpty()) tossDone = false
+        onChange(n)
+    }
+    val closeToss = {
+        showToss = false
+        tossDone = true
+    }
     MaterialTheme {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             if (showToss) {
-                BackHandler { showToss = false }
-                CoinTossScreen(onClose = { showToss = false })
+                BackHandler { closeToss() }
+                CoinTossScreen(onClose = closeToss)
             } else if (showMenu) {
                 BackHandler { showMenu = false }
-                MenuScreen(saved, onChange, onClose = { showMenu = false }, onToss = {
+                MenuScreen(saved, change, onClose = { showMenu = false }, onToss = {
                     showMenu = false
                     showToss = true
                 })
@@ -112,13 +122,14 @@ fun BandejaApp(
                 val state = saved.state()
                 if (state.isFinished) {
                     FinishedScreen(saved, state, onUndo, onNew = {
-                        onChange(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false))
+                        change(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false))
                     })
                 } else {
                     ScoreScreen(
                         saved, state, heartRate, onPoint, onUndo,
                         onMenu = { showMenu = true },
                         onToss = { showToss = true },
+                        bigToss = !tossDone,
                     )
                 }
             }
@@ -161,8 +172,10 @@ private fun ScoreScreen(
     onUndo: () -> Unit,
     onMenu: () -> Unit,
     onToss: () -> Unit,
+    bigToss: Boolean,
 ) {
     val now = rememberNow()
+    val showBigToss = bigToss && !saved.serverPicked
     val clock = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val density = LocalDensity.current
 
@@ -224,7 +237,7 @@ private fun ScoreScreen(
             }
         }
         val info: String? = when {
-            state.decidingLabel != null -> state.decidingLabel
+            state.decidingLabel != null -> if (state.rules.deuceMode == DeuceMode.STAR_POINT) "STAR" else "ORO"
             state.superTieBreak -> "SUPER TB"
             state.tieBreak -> "TIE-BREAK"
             !saved.serverPicked -> "¿QUIÉN SACA?"
@@ -235,7 +248,7 @@ private fun ScoreScreen(
         // Juegos por set y puntos de cada pareja
         Team.entries.forEach { t ->
             val gy = if (t == Team.A) 0.255f else 0.615f // fila de juegos
-            val py = if (t == Team.A) 0.19f else 0.565f // puntos
+            val py = if (t == Team.A) 0.19f else 0.58f // puntos
             if (saved.serverPicked && state.server == t) {
                 Placed(left + f(0.085f), top + f(gy + 0.03f), f(0.08f), f(0.08f)) {
                     ServeBall(Modifier.size(f(0.075f)))
@@ -261,12 +274,12 @@ private fun ScoreScreen(
                     }
                 }
             }
-            Placed(left + f(0.49f), top + f(py), f(0.44f), f(0.25f)) {
+            if (!showBigToss) Placed(left + f(0.45f), top + f(py), f(0.44f), f(0.25f)) {
                 // Antes de empezar: el primer toque en una mitad elige quién saca
                 val label = if (saved.serverPicked) state.pointLabel(t) else "¿SACA?"
                 Text(
                     label,
-                    fontSize = fs(if (label.length > 3) 0.1f else if (label.length > 2) 0.23f else 0.30f),
+                    fontSize = fs(if (label.length > 3) 0.1f else if (label.length > 2) 0.2f else 0.26f),
                     fontWeight = FontWeight.ExtraBold,
                     fontStyle = FontStyle.Italic,
                     color = Color.White,
@@ -277,14 +290,33 @@ private fun ScoreScreen(
 
         // Franja central: deshacer, cronómetro + pulso, menú
         Box(Modifier.offset(left, top + f(0.5f) - 1.dp).size(s, 2.dp).background(Color(0x55FFFFFF)))
-        Placed(left + f(0.045f), top + f(0.44f), f(0.12f), f(0.12f)) {
-            RoundIconButton("↶", f(0.12f), fs(0.075f), enabled = saved.serverPicked, onClick = onUndo)
+        Placed(left + f(0.03f), top + f(0.425f), f(0.15f), f(0.15f)) {
+            RoundIconButton("↶", f(0.15f), fs(0.095f), enabled = saved.serverPicked, onClick = onUndo)
         }
-        Placed(left + f(0.835f), top + f(0.44f), f(0.12f), f(0.12f)) {
-            RoundIconButton("⋯", f(0.12f), fs(0.075f), enabled = true, onClick = onMenu)
+        Placed(left + f(0.82f), top + f(0.425f), f(0.15f), f(0.15f)) {
+            RoundIconButton("⋯", f(0.15f), fs(0.095f), enabled = true, onClick = onMenu)
         }
-        if (!saved.serverPicked) {
-            // Botón de sorteo con moneda
+        if (showBigToss) {
+            // Botón de sorteo gigante al empezar (60 % de la esfera)
+            Placed(left + f(0.2f), top + f(0.2f), f(0.6f), f(0.6f)) {
+                Column(
+                    Modifier.fillMaxSize().clip(CircleShape)
+                        .background(Brush.radialGradient(listOf(Color(0xFFFFE08A), Gold, Color(0xFFC9900C))))
+                        .clickable(onClick = onToss),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Box(
+                        Modifier.size(f(0.13f)).clip(CircleShape).background(Color(0xFFB8860B)),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("€", fontSize = fs(0.08f), fontWeight = FontWeight.Bold, color = Gold) }
+                    Spacer(Modifier.height(f(0.02f)))
+                    Text("SORTEO", fontSize = fs(0.1f), fontWeight = FontWeight.ExtraBold, color = Color.Black)
+                    Text("cara o cruz", fontSize = fs(0.05f), fontWeight = FontWeight.Bold, color = Color(0xAA000000))
+                }
+            }
+        } else if (!saved.serverPicked) {
+            // Botón de sorteo pequeño (ya se hizo el sorteo, falta tocar quién saca)
             Placed(left + f(0.2f), top + f(0.445f), f(0.6f), f(0.11f)) {
                 Row(
                     Modifier.clip(RoundedCornerShape(f(0.055f))).background(Gold).clickable(onClick = onToss)
@@ -299,7 +331,7 @@ private fun ScoreScreen(
                     Text("SORTEO", fontSize = fs(0.065f), fontWeight = FontWeight.ExtraBold, color = Color.Black)
                 }
             }
-        } else Placed(left + f(0.17f), top + f(0.45f), f(0.66f), f(0.1f)) {
+        } else Placed(left + f(0.18f), top + f(0.445f), f(0.64f), f(0.11f)) {
             Row(
                 Modifier.clip(RoundedCornerShape(f(0.045f))).background(if (deciding) Gold else Color(0xF00B1020))
                     .padding(horizontal = f(0.03f), vertical = f(0.008f)),
@@ -310,12 +342,12 @@ private fun ScoreScreen(
                     saved.timerRunning -> Gold
                     else -> Dim
                 }
-                Text("⏱", fontSize = fs(0.055f), color = timerColor)
+                Text("⏱", fontSize = fs(0.065f), color = timerColor)
                 Spacer(Modifier.width(f(0.012f)))
-                Text(formatDuration(saved.elapsedMs(now)), fontSize = fs(0.07f), fontWeight = FontWeight.ExtraBold, color = timerColor)
+                Text(formatDuration(saved.elapsedMs(now)), fontSize = fs(0.088f), fontWeight = FontWeight.ExtraBold, color = timerColor)
                 if (info != null) {
-                    Spacer(Modifier.width(f(0.03f)))
-                    Text(info, fontSize = fs(0.042f), fontWeight = FontWeight.ExtraBold, color = if (deciding) Color.Black else Gold, maxLines = 1)
+                    Spacer(Modifier.width(f(0.02f)))
+                    Text(info, fontSize = fs(0.06f), fontWeight = FontWeight.ExtraBold, color = if (deciding) Color.Black else Gold, maxLines = 1)
                 }
             }
         }
@@ -525,10 +557,8 @@ private fun CoinTossScreen(onClose: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text("SORTEO", fontSize = fs(0.065f), fontWeight = FontWeight.ExtraBold, color = Dim)
-            Spacer(Modifier.height(f(0.02f)))
             Box(
-                Modifier.size(f(0.44f))
+                Modifier.size(f(0.56f))
                     .graphicsLayer {
                         rotationY = spin.value
                         cameraDistance = 14f * this.density
@@ -547,12 +577,12 @@ private fun CoinTossScreen(onClose: () -> Unit) {
                     if (showingBack) "CRUZ" else "CARA",
                     // La cara de atrás se dibuja girada: la volvemos a enderezar.
                     modifier = Modifier.graphicsLayer { scaleX = if (showingBack) -1f else 1f },
-                    fontSize = fs(0.075f),
+                    fontSize = fs(0.1f),
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xCC3A2A00),
                 )
             }
-            Spacer(Modifier.height(f(0.03f)))
+            Spacer(Modifier.height(f(0.015f)))
             val r = result
             Text(
                 when (r) {
@@ -560,11 +590,11 @@ private fun CoinTossScreen(onClose: () -> Unit) {
                     true -> "¡CARA!"
                     false -> "¡CRUZ!"
                 },
-                fontSize = fs(0.11f),
+                fontSize = fs(0.1f),
                 fontWeight = FontWeight.ExtraBold,
                 color = if (r == null) Dim else Gold,
             )
-            Spacer(Modifier.height(f(0.02f)))
+            Spacer(Modifier.height(f(0.01f)))
             Row(horizontalArrangement = Arrangement.spacedBy(f(0.03f))) {
                 Box(
                     Modifier.clip(RoundedCornerShape(f(0.05f))).background(ButtonDark)
