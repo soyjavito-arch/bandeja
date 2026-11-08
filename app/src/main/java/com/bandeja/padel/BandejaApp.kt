@@ -271,7 +271,7 @@ private fun ScoreScreen(
             if (saved.serverPicked && state.server == t && !showBigToss) {
                 val drive = state.serverIsDrive(saved.firstDrive(t, state.setIndex))
                 val editable = state.canChooseServerPlayer
-                Placed(left + f(0.355f), top + f(py + 0.05f), f(0.15f), f(0.15f)) {
+                Placed(left + f(0.375f), top + f(py + 0.05f), f(0.15f), f(0.15f)) {
                     Box(
                         Modifier.size(f(0.145f)).clip(CircleShape)
                             .then(if (editable) Modifier.background(Color.White).padding(f(0.01f)) else Modifier)
