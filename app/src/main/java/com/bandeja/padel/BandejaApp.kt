@@ -1,6 +1,11 @@
 package com.bandeja.padel
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -172,6 +177,24 @@ private fun ScoreScreen(
             )
         }
 
+        // Punto decisivo (punto de oro / star point): aro dorado que late y tinte dorado
+        val deciding = state.isDecidingPoint
+        if (deciding) {
+            val pulse = rememberInfiniteTransition(label = "oro")
+            val glow by pulse.animateFloat(
+                initialValue = 0.35f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(tween(550), RepeatMode.Reverse),
+                label = "brillo",
+            )
+            Canvas(Modifier.offset(left, top).size(s)) {
+                val ring = f(0.04f).toPx()
+                val r = size.minDimension / 2f
+                drawCircle(Gold.copy(alpha = 0.22f * glow), radius = r)
+                drawCircle(Gold.copy(alpha = glow), radius = r - ring / 2f, style = Stroke(ring))
+            }
+        }
+
         // Hora y, debajo, el pulso
         Placed(left, top + f(0.025f), s, f(0.125f)) {
             Text(clock.format(Date(now)), fontSize = fs(0.11f), fontWeight = FontWeight.Bold, color = Color.White)
@@ -244,17 +267,21 @@ private fun ScoreScreen(
         }
         Placed(left + f(0.17f), top + f(0.45f), f(0.66f), f(0.1f)) {
             Row(
-                Modifier.clip(RoundedCornerShape(f(0.045f))).background(Color(0xF00B1020))
+                Modifier.clip(RoundedCornerShape(f(0.045f))).background(if (deciding) Gold else Color(0xF00B1020))
                     .padding(horizontal = f(0.03f), vertical = f(0.008f)),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                val timerColor = if (saved.timerRunning) Gold else Dim
+                val timerColor = when {
+                    deciding -> Color.Black
+                    saved.timerRunning -> Gold
+                    else -> Dim
+                }
                 Text("⏱", fontSize = fs(0.055f), color = timerColor)
                 Spacer(Modifier.width(f(0.012f)))
                 Text(formatDuration(saved.elapsedMs(now)), fontSize = fs(0.07f), fontWeight = FontWeight.ExtraBold, color = timerColor)
                 if (info != null) {
                     Spacer(Modifier.width(f(0.03f)))
-                    Text(info, fontSize = fs(0.042f), fontWeight = FontWeight.ExtraBold, color = Gold, maxLines = 1)
+                    Text(info, fontSize = fs(0.042f), fontWeight = FontWeight.ExtraBold, color = if (deciding) Color.Black else Gold, maxLines = 1)
                 }
             }
         }
