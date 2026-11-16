@@ -24,6 +24,9 @@ data class Saved(
     val orderB: String = "",
     /** Hora (ms) a la que empezó el partido: al elegir quién saca. */
     val matchStartedAt: Long = 0L,
+    /** Para estimar las calorías. */
+    val weightKg: Float = 83.65f,
+    val birthYear: Int = 1979,
 ) {
     fun firstDrive(t: Team, set: Int): Boolean =
         (if (t == Team.A) orderA else orderB).getOrElse(set) { 'D' } == 'D'
@@ -81,6 +84,8 @@ class MatchStore(context: Context) {
             orderA = p.getString("orderA", "") ?: "",
             orderB = p.getString("orderB", "") ?: "",
             matchStartedAt = p.getLong("matchStartedAt", 0L),
+            weightKg = p.getFloat("weightKg", 83.65f),
+            birthYear = p.getInt("birthYear", 1979),
         )
     }
 
@@ -99,6 +104,8 @@ class MatchStore(context: Context) {
             .putString("orderA", s.orderA)
             .putString("orderB", s.orderB)
             .putLong("matchStartedAt", s.matchStartedAt)
+            .putFloat("weightKg", s.weightKg)
+            .putInt("birthYear", s.birthYear)
             .apply()
     }
 }

@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private lateinit var hrLog: HrLog
     private val saved = mutableStateOf(Saved())
     private val heartRate = mutableIntStateOf(0)
+    private val kcal = mutableIntStateOf(0)
     private var sensorManager: SensorManager? = null
     private var hrSensor: Sensor? = null
 
@@ -39,6 +40,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         store = MatchStore(this)
         hrLog = HrLog(this)
         saved.value = store.load()
+        refreshKcal()
         applyKeepScreenOn()
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as? SensorManager
@@ -51,6 +53,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             BandejaApp(
                 saved = saved.value,
                 heartRate = heartRate.intValue,
+                kcal = kcal.intValue,
                 onPoint = ::addPoint,
                 onUndo = ::undo,
                 onChange = ::update,
@@ -129,6 +132,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         val keepChanged = s.keepScreenOn != old.keepScreenOn
         saved.value = s
         store.save(s)
+        if (s.weightKg != old.weightKg || s.matchStartedAt != old.matchStartedAt) refreshKcal()
         if (keepChanged) applyKeepScreenOn()
     }
 
@@ -148,6 +152,12 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         }
         runCatching { v?.vibrate(VibrationEffect.createWaveform(pattern, -1)) }
+    }
+
+    private fun refreshKcal() {
+        val s = saved.value
+        val start = if (s.matchStartedAt > 0) s.matchStartedAt else System.currentTimeMillis()
+        kcal.intValue = Calories.total(hrLog.samples(), s.weightKg, Calories.age(s.birthYear, start))
     }
 
     // ---- Exportar ----
@@ -180,7 +190,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 // Se guarda el pulso mientras el partido está en marcha.
                 val s = saved.value
                 if (s.serverPicked && s.timerRunning && !s.state().isFinished) {
-                    hrLog.add(s.elapsedMs(System.currentTimeMillis()) / 1000, bpm)
+                    if (hrLog.add(s.elapsedMs(System.currentTimeMillis()) / 1000, bpm)) refreshKcal()
                 }
             }
         }

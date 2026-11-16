@@ -21,11 +21,12 @@ class HrLog(context: Context) {
     }
 
     /** Guarda una muestra como mucho cada [everySeconds] segundos de partido. */
-    fun add(second: Long, bpm: Int, everySeconds: Int = 10) {
+    fun add(second: Long, bpm: Int, everySeconds: Int = 10): Boolean {
         if (lastSecond < 0) lastSecond = samples().lastOrNull()?.first ?: -everySeconds.toLong()
-        if (second - lastSecond < everySeconds) return
+        if (second - lastSecond < everySeconds) return false
         lastSecond = second
         runCatching { file.appendText("$second,$bpm\n") }
+        return true
     }
 
     fun samples(): List<Pair<Long, Int>> = runCatching {
@@ -36,6 +37,27 @@ class HrLog(context: Context) {
             if (s != null && b != null) s to b else null
         }
     }.getOrDefault(emptyList())
+}
+
+/** Calorías estimadas con la fórmula de Keytel (hombre) a partir del pulso de cada momento. */
+object Calories {
+    fun perMinute(bpm: Int, weightKg: Float, age: Int): Double =
+        ((-55.0969 + 0.6309 * bpm + 0.1988 * weightKg + 0.2017 * age) / 4.184).coerceAtLeast(0.0)
+
+    /** Cada muestra cuenta hasta la siguiente (máximo 60 s); la última, 10 s. */
+    fun total(samples: List<Pair<Long, Int>>, weightKg: Float, age: Int): Int {
+        var k = 0.0
+        samples.forEachIndexed { i, (s, b) ->
+            val next = samples.getOrNull(i + 1)?.first ?: (s + 10)
+            k += perMinute(b, weightKg, age) * (next - s).coerceIn(0, 60) / 60.0
+        }
+        return k.toInt()
+    }
+
+    fun age(birthYear: Int, atMs: Long): Int {
+        val c = java.util.Calendar.getInstance().apply { timeInMillis = atMs }
+        return c.get(java.util.Calendar.YEAR) - birthYear
+    }
 }
 
 /** Crea el resumen del partido en JSON y CSV y lo guarda en Descargas/Bandeja del reloj. */
@@ -76,6 +98,7 @@ object MatchExport {
             } else {
                 put("media", JSONObject.NULL); put("maxima", JSONObject.NULL); put("minima", JSONObject.NULL)
             }
+            put("calorias", Calories.total(samples, saved.weightKg, Calories.age(saved.birthYear, start)))
             put("intervalo_segundos", 10)
             put("muestras", JSONArray().apply {
                 samples.forEach { (s, b) -> put(JSONObject().apply { put("segundo", s); put("bpm", b) }) }
@@ -117,7 +140,7 @@ object MatchExport {
     /** CSV de una sola fila con el resumen (fácil de abrir en Excel o importar). */
     fun csv(j: JSONObject): String {
         val p = j.getJSONObject("pulsaciones")
-        val header = "fecha;inicio;duracion_segundos;duracion;marcador;ganador;sets_azul;sets_verde;puntos_azul;puntos_verde;pulso_medio;pulso_maximo;pulso_minimo"
+        val header = "fecha;inicio;duracion_segundos;duracion;marcador;ganador;sets_azul;sets_verde;puntos_azul;puntos_verde;pulso_medio;pulso_maximo;pulso_minimo;calorias"
         val row = listOf(
             j.getString("fecha"), j.getString("inicio"), j.getLong("duracion_segundos").toString(),
             j.getString("duracion"), j.getString("marcador"), j.opt("ganador")?.takeIf { it != JSONObject.NULL }?.toString() ?: "",
@@ -126,6 +149,7 @@ object MatchExport {
             p.opt("media")?.takeIf { it != JSONObject.NULL }?.toString() ?: "",
             p.opt("maxima")?.takeIf { it != JSONObject.NULL }?.toString() ?: "",
             p.opt("minima")?.takeIf { it != JSONObject.NULL }?.toString() ?: "",
+            p.optInt("calorias", 0).toString(),
         ).joinToString(";")
         return "$header\n$row\n"
     }

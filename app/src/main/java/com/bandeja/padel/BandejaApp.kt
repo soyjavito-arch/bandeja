@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Chip
+import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
@@ -82,6 +83,7 @@ private val BlueText = Color(0xFF5B95FF)
 private val RedText = Color(0xFFFF6B72)
 private val GreenText = Color(0xFF4FE3A3)
 private val Gold = Color(0xFFFFC93C)
+private val KcalText = Color(0xFFFF9A4D)
 private val Dim = Color(0xFF8A8F98)
 private val ButtonDark = Color(0xFF26292E)
 
@@ -92,6 +94,7 @@ private fun teamColor(t: Team) = if (t == Team.A) BlueText else GreenText
 fun BandejaApp(
     saved: Saved,
     heartRate: Int,
+    kcal: Int,
     onPoint: (Team) -> Unit,
     onUndo: () -> Unit,
     onChange: (Saved) -> Unit,
@@ -128,7 +131,7 @@ fun BandejaApp(
                     })
                 } else {
                     ScoreScreen(
-                        saved, state, heartRate, onPoint, onUndo,
+                        saved, state, heartRate, kcal, onPoint, onUndo,
                         onMenu = { showMenu = true },
                         onToss = { showToss = true },
                         bigToss = !tossDone,
@@ -189,6 +192,7 @@ private fun ScoreScreen(
     saved: Saved,
     state: MatchState,
     heartRate: Int,
+    kcal: Int,
     onPoint: (Team) -> Unit,
     onUndo: () -> Unit,
     onMenu: () -> Unit,
@@ -264,6 +268,15 @@ private fun ScoreScreen(
             Placed(left, top + f(0.15f), s, f(0.06f)) {
                 Text(info, fontSize = fs(0.055f), fontWeight = FontWeight.ExtraBold, color = Gold, maxLines = 1)
             }
+        } else if (info == null && saved.serverPicked) {
+            // Sin avisos: calorías estimadas del partido, en tiempo real
+            Placed(left, top + f(0.148f), s, f(0.06f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🔥", fontSize = fs(0.045f))
+                    Spacer(Modifier.width(f(0.012f)))
+                    Text("$kcal kcal", fontSize = fs(0.055f), fontWeight = FontWeight.ExtraBold, color = KcalText, maxLines = 1)
+                }
+            }
         }
         // Pulso abajo
         Placed(left, top + f(0.845f), s, f(0.1f)) {
@@ -278,6 +291,19 @@ private fun ScoreScreen(
         Team.entries.forEach { t ->
             val gy = if (t == Team.A) 0.255f else 0.6f // fila de juegos
             val py = if (t == Team.A) 0.19f else 0.565f // puntos
+            // Javi es siempre el azul (arriba); el verde, los rivales.
+            if (!showBigToss) {
+                Box(
+                    Modifier.offset(left + f(0.13f), top + f(if (t == Team.A) 0.205f else 0.75f)).size(f(0.3f), f(0.05f)),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Text(
+                        if (t == Team.A) "NOSOTROS" else "RIVALES",
+                        fontSize = fs(0.042f), fontWeight = FontWeight.Bold, letterSpacing = fs(0.004f),
+                        color = teamColor(t), maxLines = 1,
+                    )
+                }
+            }
             // Dos pelotas por pareja: D (derecha) y R (revés). En amarillo, la del que saca.
             // Se pueden tocar para elegir: al empezar el partido (las 4) y en el primer
             // juego de saque de cada pareja en cada set; con el primer punto queda fijo.
@@ -546,6 +572,14 @@ private fun MenuScreen(
         }
         if (saved.serverPicked) {
             item { MenuChip("Exportar partido", "JSON y CSV en Descargas/Bandeja", onClick = onExport) }
+        }
+        item {
+            // Peso para calcular las calorías
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                CompactChip(onClick = { onChange(saved.copy(weightKg = (saved.weightKg - 0.5f).coerceAtLeast(40f))) }, label = { Text("−") })
+                Text("Peso " + String.format(Locale("es", "ES"), "%.1f", saved.weightKg) + " kg", fontSize = 14.sp, color = Color.White)
+                CompactChip(onClick = { onChange(saved.copy(weightKg = (saved.weightKg + 0.5f).coerceAtMost(160f))) }, label = { Text("+") })
+            }
         }
         item { MenuChip("Sorteo con moneda", "Cara o cruz", onClick = onToss) }
         item {
