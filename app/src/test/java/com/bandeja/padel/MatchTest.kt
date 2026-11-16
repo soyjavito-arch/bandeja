@@ -118,3 +118,21 @@ class MatchTest {
         assertTrue(set2.canChooseServerPlayer)
     }
 }
+
+class BikeTest {
+    @org.junit.Test
+    fun cronometroDeBici() {
+        var b = Bike().start(1_000L)
+        org.junit.Assert.assertEquals(1_000L, b.startedAt)
+        b = b.pause(61_000L)
+        org.junit.Assert.assertEquals(60_000L, b.elapsedMs(999_999L))
+        b = b.start(100_000L).finish(130_000L)
+        org.junit.Assert.assertTrue(b.finished)
+        org.junit.Assert.assertEquals(90_000L, b.accumMs)
+        org.junit.Assert.assertEquals(1_000L, b.startedAt)
+        // Reanudar tras terminar sigue la misma sesión
+        b = b.start(200_000L)
+        org.junit.Assert.assertFalse(b.finished)
+        org.junit.Assert.assertEquals(1_000L, b.startedAt)
+    }
+}

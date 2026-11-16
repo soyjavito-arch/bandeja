@@ -27,6 +27,10 @@ data class Saved(
     /** Para estimar las calorías. */
     val weightKg: Float = 83.65f,
     val birthYear: Int = 1979,
+    /** Pantalla activa: pádel o bici. */
+    val mode: Mode = Mode.PADEL,
+    /** Sesión de bici (independiente del partido). */
+    val bike: Bike = Bike(),
 ) {
     fun firstDrive(t: Team, set: Int): Boolean =
         (if (t == Team.A) orderA else orderB).getOrElse(set) { 'D' } == 'D'
@@ -59,6 +63,26 @@ data class Saved(
     fun state(): MatchState = MatchState.replay(rules, firstServer, history)
 }
 
+enum class Mode { PADEL, BIKE }
+
+/** Sesión de bici: cronómetro propio, se exporta como bici-AAAA-MM-DD-HHMM. */
+data class Bike(
+    /** Hora (ms) del primer arranque; 0 si no ha empezado. */
+    val startedAt: Long = 0L,
+    val timerStartedAt: Long = 0L,
+    val accumMs: Long = 0L,
+    val finished: Boolean = false,
+) {
+    val started: Boolean get() = startedAt != 0L
+    val running: Boolean get() = timerStartedAt != 0L
+    fun elapsedMs(now: Long): Long = accumMs + if (running) (now - timerStartedAt).coerceAtLeast(0) else 0
+    fun start(now: Long) = if (running) this else copy(
+        startedAt = if (started) startedAt else now, timerStartedAt = now, finished = false,
+    )
+    fun pause(now: Long) = if (!running) this else copy(accumMs = elapsedMs(now), timerStartedAt = 0L)
+    fun finish(now: Long) = pause(now).copy(finished = true)
+}
+
 class MatchStore(context: Context) {
     private val prefs = context.getSharedPreferences("bandeja", Context.MODE_PRIVATE)
 
@@ -86,6 +110,13 @@ class MatchStore(context: Context) {
             matchStartedAt = p.getLong("matchStartedAt", 0L),
             weightKg = p.getFloat("weightKg", 83.65f),
             birthYear = p.getInt("birthYear", 1979),
+            mode = if (p.getString("mode", "PADEL") == "BIKE") Mode.BIKE else Mode.PADEL,
+            bike = Bike(
+                startedAt = p.getLong("bikeStartedAt", 0L),
+                timerStartedAt = p.getLong("bikeTimerStartedAt", 0L),
+                accumMs = p.getLong("bikeAccumMs", 0L),
+                finished = p.getBoolean("bikeFinished", false),
+            ),
         )
     }
 
@@ -106,6 +137,11 @@ class MatchStore(context: Context) {
             .putLong("matchStartedAt", s.matchStartedAt)
             .putFloat("weightKg", s.weightKg)
             .putInt("birthYear", s.birthYear)
+            .putString("mode", s.mode.name)
+            .putLong("bikeStartedAt", s.bike.startedAt)
+            .putLong("bikeTimerStartedAt", s.bike.timerStartedAt)
+            .putLong("bikeAccumMs", s.bike.accumMs)
+            .putBoolean("bikeFinished", s.bike.finished)
             .apply()
     }
 }

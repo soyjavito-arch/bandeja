@@ -11,8 +11,8 @@ import java.util.Date
 import java.util.Locale
 
 /** Muestras de pulso del partido actual: "segundo,bpm" por línea en un archivo interno. */
-class HrLog(context: Context) {
-    private val file = File(context.filesDir, "pulso_partido.csv")
+class HrLog(context: Context, fileName: String = "pulso_partido.csv") {
+    private val file = File(context.filesDir, fileName)
     private var lastSecond = -1L
 
     fun clear() {
@@ -165,7 +165,7 @@ object MatchExport {
         base
     }.getOrNull()
 
-    private fun write(context: Context, name: String, mime: String, text: String) {
+    internal fun write(context: Context, name: String, mime: String, text: String) {
         val resolver = context.contentResolver
         val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
         // Si ya existe (se exportó antes el mismo partido) se sustituye.
@@ -183,5 +183,65 @@ object MatchExport {
         resolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
     }
 
-    private fun formatHms(sec: Long) = "%02d:%02d:%02d".format(sec / 3600, (sec % 3600) / 60, sec % 60)
+    internal fun formatHms(sec: Long) = "%02d:%02d:%02d".format(sec / 3600, (sec % 3600) / 60, sec % 60)
+}
+
+/** Resumen de la sesión de bici en JSON y CSV (mismo formato que el pádel, sin marcador). */
+object BikeExport {
+    fun json(saved: Saved, samples: List<Pair<Long, Int>>, now: Long): JSONObject {
+        val b = saved.bike
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
+        val day = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val start = if (b.started) b.startedAt else now
+        val durationSec = b.elapsedMs(now) / 1000
+        val bpms = samples.map { it.second }
+        val pulso = JSONObject().apply {
+            if (bpms.isNotEmpty()) {
+                put("media", bpms.average().toInt())
+                put("maxima", bpms.max())
+                put("minima", bpms.min())
+            } else {
+                put("media", JSONObject.NULL); put("maxima", JSONObject.NULL); put("minima", JSONObject.NULL)
+            }
+            put("calorias", Calories.total(samples, saved.weightKg, Calories.age(saved.birthYear, start)))
+            put("intervalo_segundos", 10)
+            put("muestras", JSONArray().apply {
+                samples.forEach { (s, bpm) -> put(JSONObject().apply { put("segundo", s); put("bpm", bpm) }) }
+            })
+        }
+        return JSONObject().apply {
+            put("app", "Bandeja")
+            put("formato", 1)
+            put("tipo", "bici")
+            put("fecha", day.format(Date(start)))
+            put("inicio", iso.format(Date(start)))
+            put("exportado", iso.format(Date(now)))
+            put("duracion_segundos", durationSec)
+            put("duracion", MatchExport.formatHms(durationSec))
+            put("terminado", b.finished)
+            put("peso_kg", saved.weightKg.toDouble())
+            put("pulsaciones", pulso)
+        }
+    }
+
+    fun csv(j: JSONObject): String {
+        val p = j.getJSONObject("pulsaciones")
+        fun opt(k: String) = p.opt(k)?.takeIf { it != JSONObject.NULL }?.toString() ?: ""
+        val header = "fecha;inicio;duracion_segundos;duracion;pulso_medio;pulso_maximo;pulso_minimo;calorias"
+        val row = listOf(
+            j.getString("fecha"), j.getString("inicio"), j.getLong("duracion_segundos").toString(),
+            j.getString("duracion"), opt("media"), opt("maxima"), opt("minima"), p.optInt("calorias", 0).toString(),
+        ).joinToString(";")
+        return "$header\n$row\n"
+    }
+
+    fun save(context: Context, saved: Saved, samples: List<Pair<Long, Int>>): String? = runCatching {
+        val now = System.currentTimeMillis()
+        val j = json(saved, samples, now)
+        val start = if (saved.bike.started) saved.bike.startedAt else now
+        val base = "bici-" + SimpleDateFormat("yyyy-MM-dd-HHmm", Locale.US).format(Date(start))
+        MatchExport.write(context, "$base.json", "application/json", j.toString(2))
+        MatchExport.write(context, "$base.csv", "text/csv", csv(j))
+        base
+    }.getOrNull()
 }

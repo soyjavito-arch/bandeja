@@ -24,6 +24,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     private lateinit var store: MatchStore
     private lateinit var hrLog: HrLog
+    private lateinit var bikeLog: HrLog
+    private val bikeKcal = mutableIntStateOf(0)
     private val saved = mutableStateOf(Saved())
     private val heartRate = mutableIntStateOf(0)
     private val kcal = mutableIntStateOf(0)
@@ -39,8 +41,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         super.onCreate(savedInstanceState)
         store = MatchStore(this)
         hrLog = HrLog(this)
+        bikeLog = HrLog(this, "pulso_bici.csv")
         saved.value = store.load()
         refreshKcal()
+        refreshBikeKcal()
         applyKeepScreenOn()
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as? SensorManager
@@ -58,6 +62,12 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 onUndo = ::undo,
                 onChange = ::update,
                 onExport = { exportMatch(showToast = true) },
+                bikeKcal = bikeKcal.intValue,
+                bikeSamples = { bikeLog.samples() },
+                onBikeStartPause = ::bikeStartPause,
+                onBikeFinish = ::bikeFinish,
+                onBikeNew = ::bikeNew,
+                onBikeExport = { exportBike(showToast = true) },
             )
         }
     }
@@ -133,6 +143,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         saved.value = s
         store.save(s)
         if (s.weightKg != old.weightKg || s.matchStartedAt != old.matchStartedAt) refreshKcal()
+        if (s.weightKg != old.weightKg || s.bike.startedAt != old.bike.startedAt) refreshBikeKcal()
         if (keepChanged) applyKeepScreenOn()
     }
 
@@ -158,6 +169,51 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         val s = saved.value
         val start = if (s.matchStartedAt > 0) s.matchStartedAt else System.currentTimeMillis()
         kcal.intValue = Calories.total(hrLog.samples(), s.weightKg, Calories.age(s.birthYear, start))
+    }
+
+    // ---- Bici ----
+
+    private fun bikeStartPause() {
+        val s = saved.value
+        val now = System.currentTimeMillis()
+        if (s.bike.running) {
+            update(s.copy(bike = s.bike.pause(now)))
+            vibrate(longArrayOf(0, 60, 60, 60))
+        } else {
+            // Primer arranque: se borra el pulso de la sesión anterior.
+            // Tras terminar, ▶ / ↶ sigue la misma sesión (para empezar otra: «Nueva sesión»).
+            if (!s.bike.started) bikeLog.clear()
+            update(s.copy(bike = s.bike.start(now)))
+            vibrate(longArrayOf(0, 120))
+        }
+    }
+
+    private fun bikeFinish() {
+        val s = saved.value
+        if (!s.bike.started) return
+        update(s.copy(bike = s.bike.finish(System.currentTimeMillis())))
+        exportBike(showToast = true)
+        vibrate(longArrayOf(0, 200, 120, 200, 120, 400))
+    }
+
+    private fun bikeNew() {
+        bikeLog.clear()
+        update(saved.value.copy(bike = Bike()))
+        refreshBikeKcal()
+    }
+
+    private fun refreshBikeKcal() {
+        val s = saved.value
+        val start = if (s.bike.started) s.bike.startedAt else System.currentTimeMillis()
+        bikeKcal.intValue = Calories.total(bikeLog.samples(), s.weightKg, Calories.age(s.birthYear, start))
+    }
+
+    private fun exportBike(showToast: Boolean) {
+        val name = BikeExport.save(this, saved.value, bikeLog.samples())
+        if (showToast) {
+            val msg = if (name != null) "Sesión guardada:\n$name" else "No se pudo guardar"
+            Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+        }
     }
 
     // ---- Exportar ----
@@ -191,6 +247,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 val s = saved.value
                 if (s.serverPicked && s.timerRunning && !s.state().isFinished) {
                     if (hrLog.add(s.elapsedMs(System.currentTimeMillis()) / 1000, bpm)) refreshKcal()
+                }
+                // Y mientras la bici está en marcha.
+                if (s.bike.running) {
+                    if (bikeLog.add(s.bike.elapsedMs(System.currentTimeMillis()) / 1000, bpm)) refreshBikeKcal()
                 }
             }
         }

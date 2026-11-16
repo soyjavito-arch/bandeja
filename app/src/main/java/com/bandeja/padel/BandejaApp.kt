@@ -99,6 +99,12 @@ fun BandejaApp(
     onUndo: () -> Unit,
     onChange: (Saved) -> Unit,
     onExport: () -> Unit,
+    bikeKcal: Int = 0,
+    bikeSamples: () -> List<Pair<Long, Int>> = { emptyList() },
+    onBikeStartPause: () -> Unit = {},
+    onBikeFinish: () -> Unit = {},
+    onBikeNew: () -> Unit = {},
+    onBikeExport: () -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showToss by remember { mutableStateOf(false) }
@@ -114,7 +120,16 @@ fun BandejaApp(
     }
     MaterialTheme {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            if (showToss) {
+            if (saved.mode == Mode.BIKE) {
+                if (showMenu) {
+                    BackHandler { showMenu = false }
+                    BikeMenuScreen(saved, onChange, onClose = { showMenu = false }, onExport = onBikeExport, onNew = onBikeNew)
+                } else if (saved.bike.finished) {
+                    BikeFinishedScreen(saved, bikeKcal, bikeSamples, onResume = onBikeStartPause, onNew = onBikeNew)
+                } else {
+                    BikeScreen(saved, heartRate, bikeKcal, onBikeStartPause, onBikeFinish, onMenu = { showMenu = true })
+                }
+            } else if (showToss) {
                 BackHandler { closeToss() }
                 CoinTossScreen(onClose = closeToss)
             } else if (showMenu) {
@@ -534,6 +549,12 @@ private fun MenuScreen(
     ScalingLazyColumn(Modifier.fillMaxSize(), state = listState) {
         item { Text("Ajustes", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White) }
         item {
+            MenuChip("🚴 Modo bici", "Cronómetro, pulso y calorías") {
+                onChange(saved.copy(mode = Mode.BIKE))
+                onClose()
+            }
+        }
+        item {
             MenuChip(
                 if (confirmNew) "¿Seguro? Toca otra vez" else "Nuevo partido",
                 "Pone el marcador a cero",
@@ -755,5 +776,201 @@ private fun PlayerBall(
         contentAlignment = Alignment.Center,
     ) {
         Text(letter, fontSize = fontSize, fontWeight = FontWeight.ExtraBold, color = if (dim) Color(0x99FFFFFF) else Color(0xFF1B2433))
+    }
+}
+
+// ---------------- Bici ----------------
+
+private val BikeTop = Color(0xFF7A2E06)
+private val BikeBottom = Color(0xFF1A0A02)
+private val BikeAccent = Color(0xFFFF8A3D)
+
+/** Pantalla de la bici: cronómetro grande, pulso, calorías y botones de marcha/parar. */
+@Composable
+private fun BikeScreen(
+    saved: Saved,
+    heartRate: Int,
+    kcal: Int,
+    onStartPause: () -> Unit,
+    onFinish: () -> Unit,
+    onMenu: () -> Unit,
+) {
+    val now = rememberNow()
+    val bike = saved.bike
+    val clock = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val density = LocalDensity.current
+    var confirmStop by remember { mutableStateOf(false) }
+    LaunchedEffect(confirmStop) {
+        if (confirmStop) { delay(3000); confirmStop = false }
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val s = if (maxWidth < maxHeight) maxWidth else maxHeight
+        val left = (maxWidth - s) / 2
+        val top = (maxHeight - s) / 2
+        fun f(x: Float): Dp = s * x
+        fun fs(x: Float): TextUnit = with(density) { (s * x).toSp() }
+
+        Box(
+            Modifier.offset(left, top).size(s).clip(CircleShape)
+                .background(Brush.verticalGradient(listOf(BikeTop, BikeBottom)))
+        )
+        Placed(left, top + f(0.03f), s, f(0.13f)) {
+            Text(clock.format(Date(now)), fontSize = fs(0.11f), fontWeight = FontWeight.Bold, color = Color.White)
+        }
+        Placed(left, top + f(0.155f), s, f(0.06f)) {
+            Text(
+                when {
+                    bike.running -> "🚴 BICI"
+                    bike.started -> "PAUSA"
+                    else -> "🚴 BICI · LISTO"
+                },
+                fontSize = fs(0.055f), fontWeight = FontWeight.ExtraBold, letterSpacing = fs(0.004f),
+                color = if (bike.running) BikeAccent else Gold, maxLines = 1,
+            )
+        }
+        // Cronómetro grande
+        Placed(left, top + f(0.22f), s, f(0.18f)) {
+            Text(
+                formatDuration(bike.elapsedMs(now)),
+                fontSize = fs(0.17f), fontWeight = FontWeight.ExtraBold,
+                color = if (bike.running || !bike.started) Color.White else Dim, maxLines = 1,
+            )
+        }
+        // Pulso y calorías
+        Placed(left + f(0.1f), top + f(0.41f), f(0.4f), f(0.14f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("♥", fontSize = fs(0.08f), color = RedText)
+                Spacer(Modifier.width(f(0.015f)))
+                Text(if (heartRate > 0) "$heartRate" else "--", fontSize = fs(0.12f), fontWeight = FontWeight.ExtraBold, color = Color.White)
+            }
+        }
+        Placed(left + f(0.5f), top + f(0.41f), f(0.4f), f(0.14f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("🔥", fontSize = fs(0.065f))
+                Spacer(Modifier.width(f(0.012f)))
+                Text("$kcal", fontSize = fs(0.12f), fontWeight = FontWeight.ExtraBold, color = KcalText)
+                Text(" kcal", fontSize = fs(0.045f), fontWeight = FontWeight.Bold, color = KcalText)
+            }
+        }
+        // Botones: terminar, marcha/pausa, menú
+        Placed(left + f(0.1f), top + f(0.6f), f(0.2f), f(0.2f)) {
+            Box(
+                Modifier.size(f(0.18f)).clip(CircleShape)
+                    .background(if (confirmStop) RedText else ButtonDark)
+                    .clickable(enabled = bike.started) {
+                        if (confirmStop) { confirmStop = false; onFinish() } else confirmStop = true
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    if (confirmStop) "¿Fin?" else "■",
+                    fontSize = fs(if (confirmStop) 0.05f else 0.08f), fontWeight = FontWeight.ExtraBold,
+                    color = if (bike.started) Color.White else Color(0xFF5A5E66),
+                )
+            }
+        }
+        Placed(left + f(0.35f), top + f(0.57f), f(0.3f), f(0.3f)) {
+            Box(
+                Modifier.size(f(0.28f)).clip(CircleShape)
+                    .background(if (bike.running) Gold else BikeAccent)
+                    .clickable(onClick = onStartPause),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(if (bike.running) "❚❚" else "▶", fontSize = fs(0.11f), fontWeight = FontWeight.ExtraBold, color = Color.Black)
+            }
+        }
+        Placed(left + f(0.7f), top + f(0.6f), f(0.2f), f(0.2f)) {
+            RoundIconButton("⋯", f(0.18f), fs(0.1f), enabled = true, onClick = onMenu)
+        }
+        Placed(left, top + f(0.87f), s, f(0.07f)) {
+            Text(
+                if (confirmStop) "toca otra vez para terminar" else if (bike.started) "■ terminar y guardar" else "▶ para empezar",
+                fontSize = fs(0.042f), fontWeight = FontWeight.Bold, color = Dim, maxLines = 1,
+            )
+        }
+    }
+}
+
+/** Resumen al terminar la sesión de bici (ya exportada). */
+@Composable
+private fun BikeFinishedScreen(
+    saved: Saved,
+    kcal: Int,
+    samples: () -> List<Pair<Long, Int>>,
+    onResume: () -> Unit,
+    onNew: () -> Unit,
+) {
+    val bpms = remember(saved.bike) { samples().map { it.second } }
+    val name = remember(saved.bike.startedAt) {
+        "bici-" + SimpleDateFormat("yyyy-MM-dd-HHmm", Locale.US).format(Date(saved.bike.startedAt))
+    }
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 22.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text("🚴 ¡Sesión hecha!", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = BikeAccent)
+        Text(formatDuration(saved.bike.accumMs), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("🔥 $kcal kcal", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = KcalText)
+            Text(
+                "♥ " + if (bpms.isNotEmpty()) "${bpms.average().toInt()} · máx ${bpms.max()}" else "--",
+                fontSize = 15.sp, fontWeight = FontWeight.Bold, color = RedText,
+            )
+        }
+        Text("Guardado: $name", fontSize = 11.sp, color = Dim, maxLines = 1)
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            RoundIconButton("↶", enabled = true, onClick = onResume)
+            Box(
+                Modifier.height(38.dp).clip(RoundedCornerShape(19.dp)).background(BikeAccent)
+                    .clickable(onClick = onNew).padding(horizontal = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text("Nueva sesión", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
+        }
+    }
+}
+
+@Composable
+private fun BikeMenuScreen(
+    saved: Saved,
+    onChange: (Saved) -> Unit,
+    onClose: () -> Unit,
+    onExport: () -> Unit,
+    onNew: () -> Unit,
+) {
+    val listState = rememberScalingLazyListState()
+    var confirmNew by remember { mutableStateOf(false) }
+    ScalingLazyColumn(Modifier.fillMaxSize(), state = listState) {
+        item { Text("Bici", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+        item {
+            MenuChip("🎾 Modo pádel", "Volver al marcador", highlight = true) {
+                onChange(saved.copy(mode = Mode.PADEL))
+                onClose()
+            }
+        }
+        if (saved.bike.started) {
+            item { MenuChip("Exportar sesión", "JSON y CSV en Descargas/Bandeja", onClick = onExport) }
+            item {
+                MenuChip(if (confirmNew) "¿Seguro? Toca otra vez" else "Nueva sesión", "Pone la bici a cero") {
+                    if (confirmNew) { onNew(); onClose() } else confirmNew = true
+                }
+            }
+        }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                CompactChip(onClick = { onChange(saved.copy(weightKg = (saved.weightKg - 0.5f).coerceAtLeast(40f))) }, label = { Text("−") })
+                Text("Peso " + String.format(Locale("es", "ES"), "%.1f", saved.weightKg) + " kg", fontSize = 14.sp, color = Color.White)
+                CompactChip(onClick = { onChange(saved.copy(weightKg = (saved.weightKg + 0.5f).coerceAtMost(160f))) }, label = { Text("+") })
+            }
+        }
+        item {
+            MenuChip(
+                "Pantalla siempre encendida: " + if (saved.keepScreenOn) "sí" else "no",
+                "Gasta algo más de batería",
+            ) { onChange(saved.copy(keepScreenOn = !saved.keepScreenOn)) }
+        }
+        item { MenuChip("Volver a la bici", null, onClick = onClose) }
     }
 }
