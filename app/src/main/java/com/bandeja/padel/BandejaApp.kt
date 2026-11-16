@@ -95,6 +95,7 @@ fun BandejaApp(
     onPoint: (Team) -> Unit,
     onUndo: () -> Unit,
     onChange: (Saved) -> Unit,
+    onExport: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showToss by remember { mutableStateOf(false) }
@@ -115,7 +116,7 @@ fun BandejaApp(
                 CoinTossScreen(onClose = closeToss)
             } else if (showMenu) {
                 BackHandler { showMenu = false }
-                MenuScreen(saved, change, onClose = { showMenu = false }, onToss = {
+                MenuScreen(saved, change, onClose = { showMenu = false }, onExport = onExport, onToss = {
                     showMenu = false
                     showToss = true
                 })
@@ -492,7 +493,13 @@ private fun FinishedScreen(saved: Saved, state: MatchState, onUndo: () -> Unit, 
 }
 
 @Composable
-private fun MenuScreen(saved: Saved, onChange: (Saved) -> Unit, onClose: () -> Unit, onToss: () -> Unit) {
+private fun MenuScreen(
+    saved: Saved,
+    onChange: (Saved) -> Unit,
+    onClose: () -> Unit,
+    onExport: () -> Unit,
+    onToss: () -> Unit,
+) {
     val listState = rememberScalingLazyListState()
     var confirmNew by remember { mutableStateOf(false) }
     val r = saved.rules
@@ -536,6 +543,9 @@ private fun MenuScreen(saved: Saved, onChange: (Saved) -> Unit, onClose: () -> U
                     "Super tie-break a 10",
                 ) { setRules(r.copy(superTieBreak = !r.superTieBreak)) }
             }
+        }
+        if (saved.serverPicked) {
+            item { MenuChip("Exportar partido", "JSON y CSV en Descargas/Bandeja", onClick = onExport) }
         }
         item { MenuChip("Sorteo con moneda", "Cara o cruz", onClick = onToss) }
         item {

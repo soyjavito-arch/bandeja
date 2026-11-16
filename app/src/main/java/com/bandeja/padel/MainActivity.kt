@@ -12,6 +12,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,6 +23,7 @@ import androidx.core.content.ContextCompat
 class MainActivity : ComponentActivity(), SensorEventListener {
 
     private lateinit var store: MatchStore
+    private lateinit var hrLog: HrLog
     private val saved = mutableStateOf(Saved())
     private val heartRate = mutableIntStateOf(0)
     private var sensorManager: SensorManager? = null
@@ -35,6 +37,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = MatchStore(this)
+        hrLog = HrLog(this)
         saved.value = store.load()
         applyKeepScreenOn()
 
@@ -51,6 +54,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 onPoint = ::addPoint,
                 onUndo = ::undo,
                 onChange = ::update,
+                onExport = { exportMatch(showToast = true) },
             )
         }
     }
@@ -83,6 +87,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         val after = next.state()
         if (after.isFinished) next = next.pauseTimer(now)
         update(next)
+        // Al terminar el partido se exporta solo.
+        if (after.isFinished) exportMatch(showToast = true)
         when {
             after.isFinished -> vibrate(longArrayOf(0, 200, 120, 200, 120, 400))
             after.endChanges > before.endChanges -> vibrate(longArrayOf(0, 400, 150, 400))
@@ -112,8 +118,15 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         vibrate(longArrayOf(0, 20, 60, 20))
     }
 
-    private fun update(s: Saved) {
-        val keepChanged = s.keepScreenOn != saved.value.keepScreenOn
+    private fun update(new: Saved) {
+        var s = new
+        val old = saved.value
+        // Empieza un partido (se elige quién saca): se apunta la hora y se reinicia el pulso.
+        if (!old.serverPicked && s.serverPicked) {
+            s = s.copy(matchStartedAt = System.currentTimeMillis())
+            hrLog.clear()
+        }
+        val keepChanged = s.keepScreenOn != old.keepScreenOn
         saved.value = s
         store.save(s)
         if (keepChanged) applyKeepScreenOn()
@@ -137,6 +150,16 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         runCatching { v?.vibrate(VibrationEffect.createWaveform(pattern, -1)) }
     }
 
+    // ---- Exportar ----
+
+    private fun exportMatch(showToast: Boolean) {
+        val name = MatchExport.save(this, saved.value, hrLog.samples())
+        if (showToast) {
+            val msg = if (name != null) "Partido guardado:\n$name" else "No se pudo guardar"
+            Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+        }
+    }
+
     // ---- Pulso ----
 
     private fun hasBodySensors() =
@@ -152,7 +175,14 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type == Sensor.TYPE_HEART_RATE) {
             val bpm = event.values.firstOrNull()?.toInt() ?: 0
-            if (bpm > 0) heartRate.intValue = bpm
+            if (bpm > 0) {
+                heartRate.intValue = bpm
+                // Se guarda el pulso mientras el partido está en marcha.
+                val s = saved.value
+                if (s.serverPicked && s.timerRunning && !s.state().isFinished) {
+                    hrLog.add(s.elapsedMs(System.currentTimeMillis()) / 1000, bpm)
+                }
+            }
         }
     }
 

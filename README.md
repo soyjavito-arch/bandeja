@@ -34,3 +34,13 @@ desde el móvil al reloj usando la misma depuración inalámbrica.
 ## Compilar
 GitHub Actions compila el APK en cada push a `main` (`.github/workflows/build.yml`).
 En local: abrir la carpeta con Android Studio y ejecutar en el reloj o en un emulador Wear OS.
+
+## Exportar el partido
+Al terminar un partido (o desde el menú ⋯ → *Exportar partido*) el reloj guarda dos archivos en
+`Descargas/Bandeja`: `partido-AAAA-MM-DD-HHMM.json` (completo, con todas las muestras de pulso cada 10 s)
+y `partido-AAAA-MM-DD-HHMM.csv` (una fila de resumen, separada por `;`).
+
+Para copiarlos al PC:
+```
+.\adb -s IP:PUERTO pull /sdcard/Download/Bandeja .
+```
