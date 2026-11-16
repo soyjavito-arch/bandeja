@@ -19,6 +19,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
+import com.bandeja.shared.Docs
+import com.bandeja.shared.PadelVivo
+import com.bandeja.shared.Partidos
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : ComponentActivity(), SensorEventListener {
 
@@ -30,10 +35,35 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var hrSensor: Sensor? = null
 
+    /** Pantalla de inicio: "inicio", "padel", "gym" o "bici". */
+    private val modo = mutableStateOf("inicio")
+    private var ultimoVivo = 0L
+
     private val askBodySensors =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
             if (ok) startHeartRate()
         }
+
+    private var trasPermisos: (() -> Unit)? = null
+    private val askVarios =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            trasPermisos?.invoke(); trasPermisos = null
+        }
+
+    /** Pide lo que haga falta para gym/bici y luego sigue (si se niega algo, sigue igual con lo que haya). */
+    private fun pedirPermisos(gps: Boolean, polar: Boolean, luego: () -> Unit) {
+        val lista = buildList {
+            add(Manifest.permission.BODY_SENSORS)
+            if (android.os.Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+            if (polar && android.os.Build.VERSION.SDK_INT >= 31) {
+                add(Manifest.permission.BLUETOOTH_SCAN); add(Manifest.permission.BLUETOOTH_CONNECT)
+            }
+            if (gps || (polar && android.os.Build.VERSION.SDK_INT < 31)) add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        if (lista.isEmpty()) { luego(); return }
+        trasPermisos = luego
+        askVarios.launch(lista.toTypedArray())
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,16 +79,92 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             askBodySensors.launch(Manifest.permission.BODY_SENSORS)
         }
 
+        // Si hay un partido a medias se abre directamente el marcador.
+        val s0 = saved.value
+        if (s0.serverPicked && !s0.state().isFinished) modo.value = "padel"
+        else if (com.bandeja.shared.Gym.sesion().let { it.inicio > 0 && it.fin == 0L }) modo.value = "gym"
+        else if (EntrenoService.biciActiva.value) modo.value = "bici"
+
+        // Órdenes del marcador desde el móvil: A (punto nuestro), B (punto rival), U (deshacer).
+        Ordenes.padel = { cmd ->
+            runOnUiThread {
+                when (cmd) {
+                    "A" -> addPoint(Team.A)
+                    "B" -> addPoint(Team.B)
+                    "U" -> undo()
+                }
+            }
+        }
+        publicarVivo(forzar = true)
+
         setContent {
-            BandejaApp(
-                saved = saved.value,
-                heartRate = heartRate.intValue,
-                kcal = kcal.intValue,
-                onPoint = ::addPoint,
-                onUndo = ::undo,
-                onChange = ::update,
-                onExport = { exportMatch(showToast = true) },
-            )
+            when (modo.value) {
+                "padel" -> BandejaApp(
+                    saved = saved.value,
+                    heartRate = heartRate.intValue,
+                    kcal = kcal.intValue,
+                    onPoint = ::addPoint,
+                    onUndo = ::undo,
+                    onChange = ::update,
+                    onExport = { exportMatch(showToast = true) },
+                    onNuevo = ::nuevoPartido,
+                    onInicio = { modo.value = "inicio" },
+                )
+                "gym" -> GymReloj(onSalir = { modo.value = "inicio" })
+                "bici" -> BiciReloj(onSalir = { modo.value = "inicio" }, pedirPermisos = ::pedirPermisos)
+                else -> InicioReloj(
+                    onPadel = { modo.value = "padel" },
+                    onGym = { pedirPermisos(false, false) { modo.value = "gym" } },
+                    onBici = { modo.value = "bici" },
+                )
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Ordenes.padel = null
+    }
+
+    /** «Nuevo partido» y «Nuevo partido a 1 set»: mismos ajustes, cambia solo el número de sets. */
+    private fun nuevoPartido(unSet: Boolean) {
+        val cur = saved.value
+        // Si había un partido a medias se guarda antes de borrarlo.
+        if (cur.history.isNotEmpty() && !cur.state().isFinished) exportMatch(showToast = false)
+        val reglas = cur.rules.copy(setsToWin = if (unSet) 1 else 2)
+        update(cur.copy(rules = reglas, history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L,
+            serverChosen = false, endChangesSeen = 0, orderA = "", orderB = "", matchStartedAt = 0L))
+        hrLog.clear()
+        refreshKcal()
+        modo.value = "padel"
+    }
+
+    /** Marcador en directo para el móvil. */
+    private fun publicarVivo(forzar: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!forzar && now - ultimoVivo < 5000) return
+        ultimoVivo = now
+        val s = saved.value
+        val st = s.state()
+        runCatching {
+            Docs.put(PadelVivo.DOC, JSONObject().apply {
+                put("activo", s.serverPicked)
+                put("sets", JSONArray().apply { st.sets.forEach { put(JSONArray().apply { put(it.a); put(it.b) }) } })
+                put("juegos", JSONArray().apply { put(st.gamesA); put(st.gamesB) })
+                put("puntos", JSONArray().apply { put(st.pointLabel(Team.A)); put(st.pointLabel(Team.B)) })
+                put("saque", if (st.server == Team.A) "azul" else "verde")
+                put("tiebreak", st.tieBreak)
+                put("aviso", st.decidingLabel ?: JSONObject.NULL)
+                put("terminado", st.isFinished)
+                put("ganador", st.winner?.let { if (it == Team.A) "azul" else "verde" } ?: JSONObject.NULL)
+                put("unSet", s.rules.setsToWin == 1)
+                put("acum", s.timerAccumMs)
+                put("desde", s.timerStartedAt)
+                put("inicio", s.matchStartedAt)
+                put("hr", heartRate.intValue)
+                put("kcal", kcal.intValue)
+                put("t", now)
+            })
         }
     }
 
@@ -134,6 +240,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         store.save(s)
         if (s.weightKg != old.weightKg || s.matchStartedAt != old.matchStartedAt) refreshKcal()
         if (keepChanged) applyKeepScreenOn()
+        publicarVivo(forzar = true)
     }
 
     private fun applyKeepScreenOn() {
@@ -164,6 +271,13 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     private fun exportMatch(showToast: Boolean) {
         val name = MatchExport.save(this, saved.value, hrLog.samples())
+        // También al historial compartido con el móvil.
+        runCatching {
+            val j = MatchExport.json(saved.value, hrLog.samples(), System.currentTimeMillis())
+            val (key, doc) = Partidos.desdeExport(j, saved.value.rules.setsToWin == 1)
+            Docs.get(key)?.optString("nota")?.takeIf { it.isNotEmpty() }?.let { doc.put("nota", it) }
+            Docs.put(key, doc)
+        }
         if (showToast) {
             val msg = if (name != null) "Partido guardado:\n$name" else "No se pudo guardar"
             Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
@@ -187,6 +301,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             val bpm = event.values.firstOrNull()?.toInt() ?: 0
             if (bpm > 0) {
                 heartRate.intValue = bpm
+                if (modo.value == "padel") publicarVivo()
                 // Se guarda el pulso mientras el partido está en marcha.
                 val s = saved.value
                 if (s.serverPicked && s.timerRunning && !s.state().isFinished) {

@@ -99,6 +99,8 @@ fun BandejaApp(
     onUndo: () -> Unit,
     onChange: (Saved) -> Unit,
     onExport: () -> Unit,
+    onNuevo: (unSet: Boolean) -> Unit,
+    onInicio: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showToss by remember { mutableStateOf(false) }
@@ -122,14 +124,25 @@ fun BandejaApp(
                 MenuScreen(saved, change, onClose = { showMenu = false }, onExport = onExport, onToss = {
                     showMenu = false
                     showToss = true
+                }, onNuevo = { unSet ->
+                    tossDone = false
+                    onNuevo(unSet)
+                    showMenu = false
+                }, onInicio = {
+                    showMenu = false
+                    onInicio()
                 })
             } else {
                 val state = saved.state()
                 if (state.isFinished) {
+                    BackHandler { onInicio() }
                     FinishedScreen(saved, state, onUndo, onNew = {
-                        change(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false, endChangesSeen = 0, orderA = "", orderB = ""))
+                        tossDone = false
+                        onNuevo(saved.rules.setsToWin == 1)
                     })
                 } else {
+                    // El botón de atrás del reloj vuelve al inicio sin perder el partido.
+                    BackHandler { onInicio() }
                     ScoreScreen(
                         saved, state, heartRate, kcal, onPoint, onUndo,
                         onMenu = { showMenu = true },
@@ -264,14 +277,18 @@ private fun ScoreScreen(
             else -> null
         }
         // Aviso (punto de oro, tie-break...) debajo de la hora
+        val unSet = saved.rules.setsToWin == 1
         if (info != null && !showBigToss) {
             Placed(left, top + f(0.15f), s, f(0.06f)) {
-                Text(info, fontSize = fs(0.055f), fontWeight = FontWeight.ExtraBold, color = Gold, maxLines = 1)
+                Text(if (unSet) "$info · 1 SET" else info, fontSize = fs(0.055f), fontWeight = FontWeight.ExtraBold, color = Gold, maxLines = 1)
             }
         } else if (info == null && saved.serverPicked) {
             // Sin avisos: calorías estimadas del partido, en tiempo real
             Placed(left, top + f(0.148f), s, f(0.06f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (unSet) {
+                        Text("1 SET · ", fontSize = fs(0.05f), fontWeight = FontWeight.ExtraBold, color = Gold, maxLines = 1)
+                    }
                     Text("🔥", fontSize = fs(0.045f))
                     Spacer(Modifier.width(f(0.012f)))
                     Text("$kcal kcal", fontSize = fs(0.055f), fontWeight = FontWeight.ExtraBold, color = KcalText, maxLines = 1)
@@ -525,9 +542,12 @@ private fun MenuScreen(
     onClose: () -> Unit,
     onExport: () -> Unit,
     onToss: () -> Unit,
+    onNuevo: (unSet: Boolean) -> Unit,
+    onInicio: () -> Unit,
 ) {
     val listState = rememberScalingLazyListState()
     var confirmNew by remember { mutableStateOf(false) }
+    var confirmUnSet by remember { mutableStateOf(false) }
     val r = saved.rules
     fun setRules(nr: Rules) = onChange(saved.copy(rules = nr))
 
@@ -536,14 +556,21 @@ private fun MenuScreen(
         item {
             MenuChip(
                 if (confirmNew) "¿Seguro? Toca otra vez" else "Nuevo partido",
-                "Pone el marcador a cero",
+                "A cero · al mejor de 3",
                 highlight = true,
             ) {
-                if (confirmNew) {
-                    onChange(saved.copy(history = emptyList(), timerStartedAt = 0L, timerAccumMs = 0L, serverChosen = false, endChangesSeen = 0, orderA = "", orderB = ""))
-                    onClose()
-                } else confirmNew = true
+                if (confirmNew) onNuevo(false) else { confirmNew = true; confirmUnSet = false }
             }
+        }
+        item {
+            // Igual que «Nuevo partido» con los mismos ajustes, pero a un solo set.
+            Chip(
+                onClick = { if (confirmUnSet) onNuevo(true) else { confirmUnSet = true; confirmNew = false } },
+                label = { Text(if (confirmUnSet) "¿Seguro? Toca otra vez" else "Nuevo partido a 1 set", maxLines = 2, color = Color.Black, fontWeight = FontWeight.Bold) },
+                secondaryLabel = { Text("A cero · un solo set", maxLines = 1, color = Color(0xFF4A3A00)) },
+                colors = ChipDefaults.primaryChipColors(backgroundColor = Gold),
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
         item {
             val label = when (r.deuceMode) {
@@ -555,12 +582,6 @@ private fun MenuScreen(
                 val next = DeuceMode.entries[(r.deuceMode.ordinal + 1) % DeuceMode.entries.size]
                 setRules(r.copy(deuceMode = next))
             }
-        }
-        item {
-            MenuChip(
-                if (r.setsToWin == 1) "Partido a 1 set" else "Al mejor de 3 sets",
-                "Toca para cambiar",
-            ) { setRules(r.copy(setsToWin = if (r.setsToWin == 1) 2 else 1)) }
         }
         if (r.setsToWin > 1) {
             item {
@@ -603,6 +624,7 @@ private fun MenuScreen(
             ) { onChange(saved.copy(keepScreenOn = !saved.keepScreenOn)) }
         }
         item { MenuChip("Volver al marcador", null, onClick = onClose) }
+        item { MenuChip("Ir al inicio", "Pádel · Gym · Bici (el partido no se pierde)", onClick = onInicio) }
     }
 }
 

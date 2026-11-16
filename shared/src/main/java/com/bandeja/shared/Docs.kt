@@ -1,0 +1,84 @@
+package com.bandeja.shared
+
+import android.content.Context
+import android.content.SharedPreferences
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import org.json.JSONObject
+
+/**
+ * Almacén de documentos clave → JSON, con el mismo formato que la base de datos de la web
+ * ("martes-banca" → {hist:[...]}, "_sesiones", "padel-AAAA-MM-DD-HHMM", "bici-…").
+ *
+ * Cada documento guarda la hora del último cambio. Al sincronizar con el otro dispositivo
+ * gana el cambio más reciente. Un documento borrado se guarda como marca de borrado
+ * para que el borrado también llegue al otro lado.
+ */
+object Docs {
+    private lateinit var prefs: SharedPreferences
+    private val cache = HashMap<String, Entry>()
+
+    /** Cambia cada vez que se modifica algo: la interfaz lo observa para repintarse. */
+    private val _version = MutableStateFlow(0)
+    val version: StateFlow<Int> = _version
+
+    /** Se llama al guardar un cambio local, para mandarlo al otro dispositivo. */
+    var onLocalChange: ((key: String, raw: String) -> Unit)? = null
+
+    data class Entry(val t: Long, val v: JSONObject?) {
+        fun raw(): String = JSONObject().apply {
+            put("t", t)
+            put("v", v ?: JSONObject.NULL)
+        }.toString()
+
+        companion object {
+            fun parse(raw: String?): Entry? = runCatching {
+                val o = JSONObject(raw ?: return null)
+                Entry(o.optLong("t"), o.optJSONObject("v"))
+            }.getOrNull()
+        }
+    }
+
+    @Synchronized
+    fun init(context: Context) {
+        if (::prefs.isInitialized) return
+        prefs = context.applicationContext.getSharedPreferences("docs", Context.MODE_PRIVATE)
+        prefs.all.forEach { (k, v) -> Entry.parse(v as? String)?.let { cache[k] = it } }
+    }
+
+    @Synchronized
+    fun get(key: String): JSONObject? = cache[key]?.v?.let { JSONObject(it.toString()) }
+
+    @Synchronized
+    fun keys(prefix: String = ""): List<String> =
+        cache.filter { it.key.startsWith(prefix) && it.value.v != null }.keys.sorted()
+
+    fun put(key: String, value: JSONObject) = write(key, Entry(System.currentTimeMillis(), value), true)
+
+    fun delete(key: String) = write(key, Entry(System.currentTimeMillis(), null), true)
+
+    /** Cambio que llega del otro dispositivo: solo se aplica si es más nuevo. */
+    fun merge(key: String, raw: String): Boolean {
+        val e = Entry.parse(raw) ?: return false
+        synchronized(this) {
+            val cur = cache[key]
+            if (cur != null && cur.t >= e.t) return false
+        }
+        write(key, e, false)
+        return true
+    }
+
+    fun raw(key: String): String? = synchronized(this) { cache[key]?.raw() }
+
+    fun allRaw(): Map<String, String> = synchronized(this) { cache.mapValues { it.value.raw() } }
+
+    private fun write(key: String, e: Entry, local: Boolean) {
+        val raw = e.raw()
+        synchronized(this) {
+            cache[key] = e
+            prefs.edit().putString(key, raw).apply()
+        }
+        _version.value = _version.value + 1
+        if (local) onLocalChange?.invoke(key, raw)
+    }
+}

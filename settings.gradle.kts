@@ -13,4 +13,5 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "Bandeja"
-include(":app")
+// app = reloj (Wear OS), mobile = móvil (Android), shared = rutina, datos y sincronización
+include(":app", ":mobile", ":shared")

@@ -2,7 +2,7 @@ name: Compilar APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, apps-rutina]
   workflow_dispatch:
 
 permissions:
@@ -30,19 +30,28 @@ jobs:
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/bandeja.jks"
             echo "BANDEJA_KEYSTORE=$RUNNER_TEMP/bandeja.jks" >> "$GITHUB_ENV"
           fi
-      - name: Compilar APK
+      - name: Compilar APK (reloj y móvil, con la misma firma)
         env:
           BANDEJA_KEYSTORE_PASSWORD: ${{ secrets.BANDEJA_KEYSTORE_PASSWORD }}
-        run: gradle :app:assembleRelease
+        run: gradle :app:assembleRelease :mobile:assembleRelease
       - name: Renombrar APK
-        run: cp app/build/outputs/apk/release/app-release.apk Bandeja.apk
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk Bandeja.apk
+          cp mobile/build/outputs/apk/release/mobile-release.apk Bandeja-movil.apk
       - uses: actions/upload-artifact@v4
         with:
           name: Bandeja-apk
-          path: Bandeja.apk
+          path: |
+            Bandeja.apk
+            Bandeja-movil.apk
       - name: Publicar en Releases (descarga directa)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v1.0.${{ github.run_number }}"
-          gh release create "$TAG" Bandeja.apk --title "Bandeja $TAG" --notes "APK para Wear OS (Galaxy Watch)." --latest
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            TAG="v1.0.${{ github.run_number }}"
+            gh release create "$TAG" Bandeja.apk Bandeja-movil.apk --title "Bandeja $TAG" --notes "Bandeja.apk para el reloj (Wear OS) y Bandeja-movil.apk para el móvil." --latest
+          else
+            TAG="prueba-${{ github.ref_name }}-${{ github.run_number }}"
+            gh release create "$TAG" Bandeja.apk Bandeja-movil.apk --title "Prueba $TAG" --notes "Versión de prueba de la rama ${{ github.ref_name }}: Bandeja.apk (reloj) y Bandeja-movil.apk (móvil)." --prerelease
+          fi
