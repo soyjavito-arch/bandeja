@@ -347,8 +347,15 @@ private fun Serie(
     val vals = Gym.valores(dia.id, ej)
     val serie = Gym.primeraPendiente(dia, ej)
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().padding(top = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Hora(now)
+        Column(Modifier.fillMaxSize().padding(top = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // Botón para volver a la lista del entreno (también vale el botón atrás del reloj).
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.clip(RoundedCornerShape(14.dp)).background(colorDia(dia.id)).clickable(onClick = onLista)
+                    .padding(horizontal = 10.dp, vertical = 2.dp)) {
+                    Text("☰ Lista", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+                Hora(now)
+            }
             Row(Modifier.padding(horizontal = 30.dp).clickable(onClick = onLista), verticalAlignment = Alignment.CenterVertically) {
                 GifView(ej.clave, Modifier.size(36.dp).clip(RoundedCornerShape(7.dp)))
                 Spacer(Modifier.width(6.dp))
