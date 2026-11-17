@@ -393,35 +393,15 @@ object Gym {
     }
 
     /**
-     * Entrenos hechos en el ciclo actual: cada uno cuenta desde que se completó el ciclo anterior.
-     * Cuando se han hecho los tres, el lunes siguiente empieza un ciclo nuevo (todos en blanco).
-     * Lo hecho hace más de 7 días no cuenta.
+     * Rutinas hechas HOY (sin semanas ni ciclos): se marca al hacerla y vuelve a blanco al día siguiente.
+     * La que está en marcha ahora mismo no cuenta hasta que se termina.
      */
     fun hechosCiclo(): Set<String> {
-        val ids = Rutina.dias.map { it.id }.toSet()
-        val todas = sesiones().filterKeys { it in ids }.flatMap { (d, f) -> f.map { it to d } }.sortedBy { it.first }
-        var desde = ""
-        val hechos = HashMap<String, String>() // rutina -> último día hecho en el ciclo
-        for ((fecha, dia) in todas) {
-            if (fecha < desde) continue
-            hechos[dia] = fecha
-            if (hechos.size == ids.size) {
-                desde = lunesSiguiente(fecha)
-                hechos.clear()
-            }
-        }
-        // Si el ciclo se acabó pero aún no es lunes, se siguen viendo los tres hechos.
-        if (hechos.isEmpty() && desde.isNotEmpty() && Fechas.hoy() < desde) return ids
-        // Un entreno de hace más de una semana ya no cuenta (si no, un ciclo sin acabar se queda colgado).
-        val f = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-        val limite = f.format(java.util.Calendar.getInstance().apply { add(java.util.Calendar.DAY_OF_MONTH, -7) }.time)
-        return hechos.filterValues { it > limite }.keys
-    }
-
-    private fun lunesSiguiente(fecha: String): String {
-        val f = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-        val c = java.util.Calendar.getInstance().apply { time = f.parse(fecha)!! }
-        do { c.add(java.util.Calendar.DAY_OF_MONTH, 1) } while (c.get(java.util.Calendar.DAY_OF_WEEK) != java.util.Calendar.MONDAY)
-        return f.format(c.time)
+        val hoy = Fechas.hoy()
+        val s = sesion()
+        return Rutina.dias.map { it.id }.filter { id ->
+            val enMarcha = s.dia == id && s.inicio > 0 && s.fin == 0L
+            !enMarcha && hoy in (sesiones()[id] ?: emptyList())
+        }.toSet()
     }
 }

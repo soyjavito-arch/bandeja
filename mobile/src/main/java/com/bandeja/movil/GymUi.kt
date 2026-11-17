@@ -79,12 +79,7 @@ fun GymTab(v: Int, onInicio: () -> Unit) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp)) {
             Cabecera("Gym", onAtras = onInicio) { BotonRedondo("📈", 42.dp) { stats = true } }
             Pestanas(diaId) { diaId = it }
-            val hechos = Gym.hechosCiclo()
-            Text(
-                if (hechos.size >= Rutina.dias.size) "¡Los tres hechos! El lunes vuelven a blanco."
-                else "Hechos ${hechos.size} de ${Rutina.dias.size}. Al hacer los tres, el lunes siguiente vuelven a blanco.",
-                color = Gris, fontSize = 13.sp, modifier = Modifier.padding(vertical = 6.dp),
-            )
+            Spacer(Modifier.height(6.dp))
             if (ses.inicio > 0) {
                 SesionCaja(ses, now, grande = true)
                 Spacer(Modifier.height(4.dp))

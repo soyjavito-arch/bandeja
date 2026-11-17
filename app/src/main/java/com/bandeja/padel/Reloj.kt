@@ -284,7 +284,6 @@ private fun ElegirDia(now: Long, onDia: (String) -> Unit) {
     val hechos = Gym.hechosCiclo()
     ScalingLazyColumn(Modifier.fillMaxSize()) {
         item { Hora(now) }
-        item { Text("HECHOS ${hechos.size} DE ${Rutina.dias.size}", fontSize = 15.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Gris) }
         Rutina.dias.forEach { d ->
             val hecho = d.id in hechos
             val c = colorDia(d.id)
