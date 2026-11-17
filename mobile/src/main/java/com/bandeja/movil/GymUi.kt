@@ -157,7 +157,17 @@ private fun SesionCaja(ses: Gym.Sesion, now: Long, grande: Boolean, ejKey: Strin
                     }
                 }
             }
-            if (grande && ses.fin == 0L) Pildora("Terminar", Rojo) { confirmar = true }
+            // Interruptor: blanco «En marcha» ↔ verde «Terminada». Si se terminó por error, se toca y sigue.
+            if (grande) {
+                val hecha = ses.fin > 0
+                Box(Modifier.clip(RoundedCornerShape(50)).background(if (hecha) Verde else Color.White)
+                    .border(1.5.dp, if (hecha) Verde else Linea, RoundedCornerShape(50))
+                    .clickable { if (hecha) Gym.reanudarSesion() else confirmar = true }
+                    .padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    Text(if (hecha) "✓ Terminada" else "● En marcha", color = if (hecha) Color.White else Tinta,
+                        fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+                }
+            }
             if (!grande) {
                 // Cronómetro del ejercicio: arranca al entrar y se para con la última serie.
                 val ms = ejKey?.let { ses.tiempoEjMs(it, now) }
@@ -180,7 +190,7 @@ private fun SesionCaja(ses: Gym.Sesion, now: Long, grande: Boolean, ejKey: Strin
         AlertDialog(
             onDismissRequest = { confirmar = false },
             title = { Text("¿Terminar la sesión?") },
-            text = { Text("Se para el cronómetro. Lo apuntado se queda guardado.") },
+            text = { Text("Se para el cronómetro. Lo apuntado se queda guardado. Si te equivocas, toca «Terminada» y sigue.") },
             confirmButton = { TextButton({ Gym.terminarSesion(); confirmar = false }) { Text("Terminar") } },
             dismissButton = { TextButton({ confirmar = false }) { Text("Seguir") } },
         )

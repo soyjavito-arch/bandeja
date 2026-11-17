@@ -323,7 +323,13 @@ private fun ListaDia(dia: Dia, ses: Gym.Sesion, now: Long, onEjercicio: (Int) ->
                 }
             }
         }
-        if (ses.inicio > 0) item {
+        if (ses.inicio > 0 && ses.fin > 0 && ses.dia == dia.id) item {
+            // Terminada por error: tocar y el cronómetro sigue.
+            Chip(onClick = { Gym.reanudarSesion() },
+                label = { Text("✓ Terminada", fontWeight = FontWeight.Bold) },
+                secondaryLabel = { Text("Toca para continuar") },
+                colors = ChipDefaults.primaryChipColors(backgroundColor = Verde), modifier = Modifier.fillMaxWidth())
+        } else if (ses.inicio > 0) item {
             Chip(onClick = { if (confirmar) onTerminar() else confirmar = true },
                 label = { Text(if (confirmar) "¿Seguro? Toca otra vez" else "Terminar sesión") },
                 secondaryLabel = { Text(Fechas.hms(ses.duracionMs(now) / 1000)) },

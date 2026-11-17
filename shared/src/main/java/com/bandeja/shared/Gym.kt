@@ -231,6 +231,14 @@ object Gym {
         guardar(s.copy(tiempos = s.tiempos + (key to (System.currentTimeMillis() to 0L))))
     }
 
+    /** Deshace «Terminar»: el cronómetro sigue desde donde se quedó (sin contar el rato parado). */
+    fun reanudarSesion() {
+        val s = sesion()
+        if (s.inicio == 0L || s.fin == 0L) return
+        val now = System.currentTimeMillis()
+        guardar(s.copy(inicio = now - (s.fin - s.inicio), fin = 0L))
+    }
+
     fun terminarSesion() {
         val s = sesion()
         if (s.inicio == 0L) return
