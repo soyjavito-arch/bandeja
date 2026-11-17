@@ -560,23 +560,23 @@ private fun AjustesBici(onEmpezar: (polar: Boolean) -> Unit, onSalir: () -> Unit
     ScalingLazyColumn(Modifier.fillMaxSize().background(Color.Black)) {
         item { Hora(now) }
         item {
-            Chip(onClick = { onEmpezar(true) }, label = { Text("▶ Empezar con Polar", fontWeight = FontWeight.Bold) },
+            Chip(onClick = { onEmpezar(true) }, label = { Text("▶ Empezar con Polar", fontSize = 17.sp, fontWeight = FontWeight.Bold) },
                 secondaryLabel = { Text("H10 ${Bici.POLAR_ID}") },
                 colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFFB4531C)), modifier = Modifier.fillMaxWidth())
         }
         item {
-            Chip(onClick = { onEmpezar(false) }, label = { Text("▶ Con el pulso del reloj") },
+            Chip(onClick = { onEmpezar(false) }, label = { Text("▶ Con el pulso del reloj", fontSize = 17.sp, fontWeight = FontWeight.Bold) },
                 secondaryLabel = { Text("Si hoy no llevas el Polar") },
                 colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth())
         }
         item {
             Chip(onClick = { Bici.guardar(a.copy(gps = !a.gps)) },
-                label = { Text(if (a.gps) "🌳 Exterior · GPS" else "🏠 Spinning") }, secondaryLabel = { Text("Toca para cambiar") },
+                label = { Text(if (a.gps) "🌳 Exterior · GPS" else "🏠 Spinning", fontSize = 17.sp) }, secondaryLabel = { Text("Toca para cambiar") },
                 colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth())
         }
         item {
             Chip(onClick = { Bici.guardar(a.copy(on = !a.on)) },
-                label = { Text("⚡ Cambios de ritmo: " + if (a.on) "sí" else "no") },
+                label = { Text("⚡ Cambios de ritmo: " + if (a.on) "sí" else "no", fontSize = 17.sp) },
                 secondaryLabel = { Text(if (a.on) "${a.n} cambios · ${a.lo} → ${a.hi}" else "Start y Break por pulso") },
                 colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth())
         }
@@ -592,11 +592,11 @@ private fun AjustesBici(onEmpezar: (polar: Boolean) -> Unit, onSalir: () -> Unit
 @Composable
 private fun Ajuste(titulo: String, valor: String, onMenos: () -> Unit, onMas: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(titulo, fontSize = 11.sp, color = Gris)
+        Text(titulo, fontSize = 16.sp, color = Claro)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Redondo("−", onMenos, 30)
-            Text(valor, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.width(56.dp), textAlign = TextAlign.Center)
-            Redondo("+", onMas, 30)
+            Redondo("−", onMenos, 40)
+            Text(valor, fontSize = 34.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.width(64.dp), textAlign = TextAlign.Center)
+            Redondo("+", onMas, 40)
         }
     }
 }
@@ -635,47 +635,59 @@ private fun BiciEnMarcha(v: JSONObject?, onPausa: () -> Unit, onParar: () -> Uni
     if (f != null) {
         Box(Modifier.fillMaxSize().background(if (f.first == "FINISH") Verde else Color(0xFFC0392B)).clickable { flash = null }, contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(f.first, fontSize = 42.sp, fontWeight = FontWeight.Black, color = Color.White)
-                Text(f.second, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(f.first, fontSize = 60.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(f.second, fontSize = 24.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
         return
     }
+    // Todo grande para verlo pedaleando: pulso enorme del color de la zona, cambio de ritmo y tiempo.
     Box(Modifier.fillMaxSize().background(Color.Black).clickable { controles = !controles; confirmar = false }) {
-        Column(Modifier.fillMaxSize().padding(top = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Hora(now)
+        Column(Modifier.fillMaxSize().padding(top = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             val polar = v?.optString("fuente") == "polar"
             val gps = v != null && !v.isNull("km") && v.has("km")
-            Text((if (gps) "EXTERIOR" else "SPINNING") + " · " + if (polar) "❤️ POLAR" else "⌚ RELOJ",
-                fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AzulBici)
-            Text("♥" + (if (hr > 0) hr else "--"), fontSize = 44.sp, fontWeight = FontWeight.Bold, color = colorZonaReloj(Zonas.zona(hr)))
-            Text(Zonas.nombre(Zonas.zona(hr)).substringBefore(" ·"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colorZonaReloj(Zonas.zona(hr)))
+            val z = Zonas.zona(hr)
+            Row(Modifier.height(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(Fechas.hora(now), fontSize = 20.sp, lineHeight = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Text(if (polar) "  POLAR" else "  RELOJ", fontSize = 16.sp, lineHeight = 18.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = AzulBici)
+            }
+            Row(Modifier.height(62.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("♥", fontSize = 28.sp, color = colorZonaReloj(z))
+                Text(if (hr > 0) "$hr" else "--", fontSize = 70.sp, lineHeight = 70.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorZonaReloj(z))
+            }
+            Text(if (z > 0) "ZONA $z" else "REPOSO", fontSize = 22.sp, lineHeight = 24.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorZonaReloj(z))
+            Spacer(Modifier.height(2.dp))
             if (controles) {
-                Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Pastilla(if (v?.optBoolean("pausa") == true) "▶ Seguir" else "❚❚ Pausa", Boton, onPausa)
                     Pastilla(if (confirmar) "¿Seguro?" else "■ Fin", Color(0xFFC0392B), { if (confirmar) onParar() else confirmar = true })
                 }
             } else if (ritmo != null && ritmo.optBoolean("activo", true)) {
                 val ms = ritmo.optLong("ms") / 1000
-                val txt = when (estado) {
-                    "esperando" -> "Start al bajar a ${ritmo.optInt("lo")}"
-                    "subiendo" -> "▲ $num DE $n · ${Fechas.mmss(ms)}"
-                    "recuperando" -> "■ $num · ${Fechas.mmss(ms)} · Start a ${ritmo.optInt("lo")}"
-                    else -> "✓ $n cambios hechos"
+                val sube = estado == "subiendo"
+                // Línea 1: en qué cambio vas y su cronómetro (corre de Start a Break). Línea 2: lo siguiente.
+                Text(when (estado) {
+                    "esperando" -> "START A ${ritmo.optInt("lo")}"
+                    "fin" -> "✓ $n HECHOS"
+                    else -> (if (sube) "▲ " else "■ ") + "$num/$n  ${Fechas.mmss(ms)}"
+                }, fontSize = 28.sp, lineHeight = 30.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold,
+                    color = if (sube) NaranjaTxt else Color.White)
+                val sig = when (estado) {
+                    "subiendo" -> "Break a ${ritmo.optInt("hi")}"
+                    "recuperando" -> "Start a ${ritmo.optInt("lo")}"
+                    else -> ""
                 }
-                Text(txt, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (estado == "subiendo") NaranjaTxt else Claro)
-                if (estado == "subiendo") Text("Break a ${ritmo.optInt("hi")}", fontSize = 11.sp, color = Gris)
+                if (sig.isNotEmpty()) Text(sig, fontSize = 18.sp, lineHeight = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Claro)
             } else if (gps) {
-                Text("%.1f km · %.0f km/h".format(v?.optDouble("km") ?: 0.0, v?.optDouble("kmh") ?: 0.0), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Claro)
+                Text("%.1f km · %.0f km/h".format(v?.optDouble("km") ?: 0.0, v?.optDouble("kmh") ?: 0.0), fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Claro)
             } else {
-                Text("media ${v?.optInt("media") ?: 0}   máx ${v?.optInt("max") ?: 0}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Claro)
+                Text("MEDIA ${v?.optInt("media") ?: 0} · MÁX ${v?.optInt("max") ?: 0}", fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Claro)
             }
         }
-        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(Fechas.hms(v?.optLong("seg") ?: 0), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Text("🔥${v?.optInt("kcal") ?: 0}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NaranjaTxt)
-            if (v?.optBoolean("pausa") == true) Text("PAUSA", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = NaranjaTxt)
+        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(Fechas.hms(v?.optLong("seg") ?: 0), fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("🔥${v?.optInt("kcal") ?: 0}", fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = NaranjaTxt)
+            if (v?.optBoolean("pausa") == true) Text("PAUSA", fontSize = 18.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = NaranjaTxt)
         }
     }
 }
