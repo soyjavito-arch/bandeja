@@ -619,6 +619,9 @@ private fun BiciEnMarcha(v: JSONObject?, onPausa: () -> Unit, onParar: () -> Uni
     val estado = ritmo?.optString("estado") ?: ""
     val num = ritmo?.optInt("num") ?: 0
     val n = ritmo?.optInt("n") ?: 0
+    val ritmoActivo = ritmo?.optBoolean("activo", true) == true
+    // Se ven los cambios si están en marcha o si ya se empezó alguno (en pausa se queda el tiempo congelado).
+    val verRitmo = ritmo != null && (ritmoActivo || num > 0)
     // Pantalla grande de BREAK / FINISH unos segundos.
     LaunchedEffect("$estado-$num") {
         val firma = "$estado-$num"
@@ -662,7 +665,7 @@ private fun BiciEnMarcha(v: JSONObject?, onPausa: () -> Unit, onParar: () -> Uni
                     Pastilla(if (v?.optBoolean("pausa") == true) "▶ Seguir" else "❚❚ Pausa", Boton, onPausa)
                     Pastilla(if (confirmar) "¿Seguro?" else "■ Fin", Color(0xFFC0392B), { if (confirmar) onParar() else confirmar = true })
                 }
-            } else if (ritmo != null && ritmo.optBoolean("activo", true)) {
+            } else if (ritmo != null && verRitmo) {
                 val ms = ritmo.optLong("ms") / 1000
                 val sube = estado == "subiendo"
                 // Línea 1: en qué cambio vas y su cronómetro (corre de Start a Break). Línea 2: lo siguiente.
@@ -672,7 +675,7 @@ private fun BiciEnMarcha(v: JSONObject?, onPausa: () -> Unit, onParar: () -> Uni
                     else -> (if (sube) "▲ " else "■ ") + "$num/$n  ${Fechas.mmss(ms)}"
                 }, fontSize = 28.sp, lineHeight = 30.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold,
                     color = if (sube) NaranjaTxt else Color.White)
-                val sig = when (estado) {
+                val sig = if (!ritmoActivo) "En pausa" else when (estado) {
                     "subiendo" -> "Break a ${ritmo.optInt("hi")}"
                     "recuperando" -> "Start a ${ritmo.optInt("lo")}"
                     else -> ""
@@ -689,7 +692,18 @@ private fun BiciEnMarcha(v: JSONObject?, onPausa: () -> Unit, onParar: () -> Uni
                 }
             }
         }
-        val grandes = !controles && !(ritmo != null && ritmo.optBoolean("activo", true)) && !(v != null && !v.isNull("km") && v.has("km"))
+        val grandes = !controles && !verRitmo && !(v != null && !v.isNull("km") && v.has("km"))
+        // Botón ⚡ a la derecha: empieza, pausa y sigue los cambios de ritmo (con los ajustes de Start/Break guardados).
+        if (!controles) {
+            Box(Modifier.align(Alignment.CenterEnd).padding(end = 6.dp).size(44.dp).clip(CircleShape)
+                .background(if (ritmoActivo) Boton else Color(0xFFB4531C))
+                .clickable {
+                    val a = Bici.ajustes()
+                    Bici.guardar(if (ritmoActivo) a.copy(marcha = false) else a.copy(on = true, marcha = true))
+                }, contentAlignment = Alignment.Center) {
+                Text(if (ritmoActivo) "❚❚" else "⚡▶", fontSize = if (ritmoActivo) 18.sp else 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
         if (!grandes) Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(Fechas.hms(v?.optLong("seg") ?: 0), fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Color.White)
             Text("🔥${v?.optInt("kcal") ?: 0}", fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = NaranjaTxt)
