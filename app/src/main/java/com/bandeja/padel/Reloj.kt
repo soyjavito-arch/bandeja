@@ -1,5 +1,7 @@
 package com.bandeja.padel
 
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import android.widget.ImageView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
@@ -300,15 +302,30 @@ private fun ElegirDia(now: Long, onDia: (String) -> Unit) {
 @Composable
 private fun ListaDia(dia: Dia, ses: Gym.Sesion, now: Long, onEjercicio: (Int) -> Unit, onTerminar: () -> Unit, onSalir: () -> Unit) {
     var confirmar by remember { mutableStateOf(false) }
+    var resetear by remember { mutableStateOf(false) }
     val actual = Gym.actual(dia)
     ScalingLazyColumn(Modifier.fillMaxSize()) {
         item { Hora(now) }
+        // Doble toque en el tiempo: borrar la sesión de hoy y empezar de cero.
+        if (resetear) {
+            item {
+                Chip(onClick = { Gym.resetearSesion(); resetear = false },
+                    label = { Text("Empezar de cero") }, secondaryLabel = { Text("Borra la sesión de hoy") },
+                    colors = ChipDefaults.chipColors(backgroundColor = Color(0xFFC0392B)), modifier = Modifier.fillMaxWidth())
+            }
+            item { Chip(onClick = { resetear = false }, label = { Text("Cancelar") }, colors = ChipDefaults.secondaryChipColors(), modifier = Modifier.fillMaxWidth()) }
+        }
         item {
             Row {
                 Text(dia.tag.uppercase(), fontSize = 19.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id))
                 if (ses.inicio > 0) Text(" · " + (if (ses.pausada) "II " else "") + Fechas.hms(ses.duracionMs(now) / 1000), fontSize = 19.sp, fontFamily = Barlow,
                     fontWeight = FontWeight.Bold, color = if (ses.pausada) NaranjaTxt else Color.White,
-                    modifier = Modifier.clickable(enabled = ses.fin == 0L) { Gym.pausarSesion() })
+                    modifier = Modifier.pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = { if (Gym.sesion().fin == 0L) Gym.pausarSesion() },
+                            onDoubleTap = { resetear = true },
+                        )
+                    })
             }
         }
         dia.ejercicios.forEachIndexed { i, e ->

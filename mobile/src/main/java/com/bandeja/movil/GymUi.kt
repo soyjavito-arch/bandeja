@@ -143,11 +143,17 @@ fun Pestanas(sel: String, onSel: (String) -> Unit) {
 @Composable
 private fun SesionCaja(ses: Gym.Sesion, now: Long, grande: Boolean, ejKey: String? = null, dia: Dia? = null, ej: Ejercicio? = null) {
     var confirmar by rememberSaveable { mutableStateOf(false) }
+    var resetear by rememberSaveable { mutableStateOf(false) }
     Caja(Modifier.padding(vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                // Tocar el tiempo: pausa / sigue.
-                Column(Modifier.clickable(enabled = ses.fin == 0L) { Gym.pausarSesion() }) {
+                // Un toque en el tiempo: pausa / sigue. Dos toques: empezar de cero (pide confirmación).
+                Column(Modifier.pointerInput(ses.fin == 0L) {
+                    detectTapGestures(
+                        onTap = { if (Gym.sesion().fin == 0L) Gym.pausarSesion() },
+                        onDoubleTap = { resetear = true },
+                    )
+                }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(10.dp).clip(CircleShape).background(if (ses.fin > 0) Verde else if (ses.pausada) Naranja else Rojo))
                         Text(if (ses.fin > 0) "  Sesión terminada" else if (ses.pausada) "  Sesión en pausa · toca para seguir" else "  Sesión en marcha",
@@ -202,6 +208,16 @@ private fun SesionCaja(ses: Gym.Sesion, now: Long, grande: Boolean, ejKey: Strin
                 }
             }
         }
+    }
+    if (resetear) {
+        val nombre = ses.dia?.let { Rutina.dia(it)?.tag } ?: "la sesión"
+        AlertDialog(
+            onDismissRequest = { resetear = false },
+            title = { Text("¿Empezar de cero?") },
+            text = { Text("Se borra la sesión de hoy: $nombre vuelve a blanco, el tiempo a cero y las series sin marcar. Los kg y reps que pusiste se quedan.") },
+            confirmButton = { TextButton({ Gym.resetearSesion(); resetear = false }) { Text("Empezar de cero", color = Rojo) } },
+            dismissButton = { TextButton({ resetear = false }) { Text("Cancelar") } },
+        )
     }
     if (confirmar) {
         AlertDialog(

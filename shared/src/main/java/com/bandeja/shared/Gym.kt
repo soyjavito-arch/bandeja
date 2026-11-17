@@ -311,6 +311,19 @@ object Gym {
 
     fun reiniciarSesion() = Docs.delete(LIVE)
 
+    /**
+     * Doble toque en el tiempo de la sesión: se borra la de hoy como si no se hubiera hecho
+     * (la rutina vuelve a blanco y se quita de las estadísticas). Los kg y reps apuntados se quedan.
+     */
+    fun resetearSesion() {
+        val s = sesion()
+        s.dia?.let { d ->
+            quitarSesion(d, s.fecha)
+            Docs.delete("gym-${s.fecha}-$d")
+        }
+        Docs.delete(LIVE)
+    }
+
     private fun apuntarSesion(dia: String) {
         val ses = Docs.get("_sesiones") ?: JSONObject()
         val a = ses.optJSONArray(dia) ?: JSONArray()
