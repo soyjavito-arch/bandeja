@@ -52,7 +52,7 @@ import org.json.JSONObject
 import java.util.Calendar
 
 @Composable
-fun PadelTab(v: Int) {
+fun PadelTab(v: Int, onInicio: () -> Unit) {
     @Suppress("UNUSED_VARIABLE") val ver = v
     var editando by rememberSaveable { mutableStateOf<String?>(null) }
     val ed = editando
@@ -63,7 +63,7 @@ fun PadelTab(v: Int) {
     }
     val now = ahora(1000)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Titulo("Pádel")
+        Cabecera("Pádel", onAtras = onInicio)
         val vivo = Docs.get(PadelVivo.DOC)
         if (vivo != null && vivo.optBoolean("activo") && now - vivo.optLong("t") < 3 * 3600_000L) {
             EnDirecto(vivo, now)
@@ -72,7 +72,7 @@ fun PadelTab(v: Int) {
             Caja { Text("No hay partido en marcha. Empiézalo en el reloj y lo verás aquí en directo.", color = Gris, fontSize = 14.sp) }
             Spacer(Modifier.height(16.dp))
         }
-        Text("Partidos", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+        Text("Partidos", color = Tinta, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(6.dp))
         val todos = Partidos.todos()
         if (todos.isEmpty()) Text("Todavía no hay partidos guardados.", color = Gris, fontSize = 14.sp)
@@ -99,7 +99,7 @@ private fun EnDirecto(o: JSONObject, now: Long) {
             Text(if (terminado) "TERMINADO" else "● EN DIRECTO", color = if (terminado) Oro else Rojo, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             if (o.optBoolean("unSet")) Text("   1 SET", color = Oro, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.weight(1f))
-            Text(Fechas.hms(ms / 1000), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(Fechas.hms(ms / 1000), color = Tinta, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
         if (!o.isNull("aviso")) Text(o.optString("aviso"), color = Oro, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(8.dp))
@@ -108,12 +108,12 @@ private fun EnDirecto(o: JSONObject, now: Long) {
                 .padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(if (saque == (if (i == 0) "azul" else "verde") && !terminado) Oro else Color.Transparent))
                 Spacer(Modifier.width(8.dp))
-                Text(nombre, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(nombre, color = Tinta, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 for (k in 0 until (sets?.length() ?: 0)) {
                     Text("${sets!!.optJSONArray(k)?.optInt(i)}", color = Gris, fontSize = 18.sp, modifier = Modifier.width(26.dp))
                 }
                 if (!terminado) {
-                    Text("${juegos?.optInt(i) ?: 0}", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(30.dp))
+                    Text("${juegos?.optInt(i) ?: 0}", color = Tinta, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(30.dp))
                     Text(puntos?.optString(i) ?: "0", color = color, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
                         modifier = Modifier.width(52.dp))
                 }
@@ -148,7 +148,7 @@ private fun FilaPartido(p: Partidos.Resumen, onAbrir: () -> Unit) {
         enableDismissFromStartToEnd = false,
         backgroundContent = {
             Box(Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(Rojo).padding(end = 20.dp), contentAlignment = Alignment.CenterEnd) {
-                Text("Borrar", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Borrar", color = Tinta, fontWeight = FontWeight.Bold)
             }
         },
         modifier = Modifier.padding(vertical = 4.dp),
@@ -165,7 +165,7 @@ private fun FilaPartido(p: Partidos.Resumen, onAbrir: () -> Unit) {
             }
             Spacer(Modifier.height(4.dp))
             Text(p.sets.joinToString("   ") { "${it.first}-${it.second}" }.ifEmpty { "—" },
-                color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                color = Tinta, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             val extra = buildList {
                 if (p.dur > 0) add(Fechas.hms(p.dur))
                 p.pm?.let { add("♥ $it") }
@@ -208,9 +208,7 @@ private fun EditarPartido(key: String, onCerrar: () -> Unit) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BotonRedondo("‹", 44.dp, onClick = onCerrar)
-            Spacer(Modifier.width(12.dp))
-            Titulo("Editar partido")
+            Cabecera("Editar partido", "‹", onAtras = onCerrar)
         }
         Caja {
             Text("Fecha y hora", color = Gris, fontSize = 13.sp)
@@ -233,7 +231,7 @@ private fun EditarPartido(key: String, onCerrar: () -> Unit) {
         Caja {
             Text("Tipo de partido", color = Gris, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                Pildora("1 set", if (unSet) Oro else Tarjeta2, txt = if (unSet) Color.Black else Color.White) { unSet = true }
+                Pildora("1 set", if (unSet) Oro else Tarjeta2, txt = if (unSet) Color.White else Tinta) { unSet = true }
                 Pildora("Al mejor de 3", if (!unSet) Azul else Tarjeta2) { unSet = false }
             }
         }

@@ -133,7 +133,6 @@ fun InicioReloj(onPadel: () -> Unit, onGym: () -> Unit, onBici: () -> Unit) {
     val now = ahora()
     val conectado by Sync.conectado.collectAsState()
     LaunchedEffect(Unit) { Sync.comprobarConexion() }
-    val hoy = Fechas.diaGymHoy()?.let { Rutina.dia(it) }
     val bici by EntrenoService.biciActiva.collectAsState()
     val state = rememberScalingLazyListState()
     ScalingLazyColumn(Modifier.fillMaxSize().background(Color.Black), state = state) {
@@ -145,7 +144,7 @@ fun InicioReloj(onPadel: () -> Unit, onGym: () -> Unit, onBici: () -> Unit) {
         }
         item {
             Chip(onClick = onGym, label = { Text("🏋️ Gym", fontWeight = FontWeight.Bold) },
-                secondaryLabel = { Text(if (hoy != null) "Hoy: ${hoy.nombre.lowercase()}, ${hoy.tag.lowercase()}" else "Elige el día") },
+                secondaryLabel = { Text("Empuje · Pierna · Tirón") },
                 colors = ChipDefaults.primaryChipColors(backgroundColor = Naranja), modifier = Modifier.fillMaxWidth())
         }
         item {
@@ -174,7 +173,7 @@ fun GymReloj(onSalir: () -> Unit) {
 
     @Suppress("UNUSED_VARIABLE") val ver = v
     val ses = Gym.sesion()
-    var diaId by remember { mutableStateOf(ses.dia ?: Fechas.diaGymHoy()) }
+    var diaId by remember { mutableStateOf(ses.dia.takeIf { ses.inicio > 0 }) }
     var pantalla by remember { mutableStateOf(if (diaId == null) "dias" else if (ses.inicio > 0 && ses.fin == 0L) "serie" else "lista") }
     val dia = diaId?.let { Rutina.dia(it) }
     var idx by remember { mutableIntStateOf(dia?.let { Gym.actual(it) } ?: 0) }
@@ -251,19 +250,20 @@ fun GymReloj(onSalir: () -> Unit) {
 
 @Composable
 private fun ElegirDia(now: Long, onDia: (String) -> Unit) {
-    val hoy = Fechas.diaGymHoy()
+    val hechos = Gym.hechosCiclo()
     ScalingLazyColumn(Modifier.fillMaxSize()) {
         item { Hora(now) }
         Rutina.dias.forEach { d ->
+            val hecho = d.id in hechos
+            val c = when (d.id) { "martes" -> Color(0xFF2B5C9E); "jueves" -> Color(0xFFB4531C); else -> Color(0xFF7A3F9E) }
             item {
                 Chip(onClick = { onDia(d.id) },
-                    label = { Text(d.nombre + if (d.id == hoy) " · hoy" else "", fontWeight = FontWeight.Bold) },
-                    secondaryLabel = { Text("${d.tag} · ${d.ejercicios.size} ejercicios") },
-                    colors = if (d.id == hoy) ChipDefaults.primaryChipColors(backgroundColor = Naranja) else ChipDefaults.secondaryChipColors(),
+                    label = { Text((if (hecho) "✓ " else "") + d.tag, fontWeight = FontWeight.Bold) },
+                    secondaryLabel = { Text(d.sub, maxLines = 1) },
+                    colors = if (hecho) ChipDefaults.primaryChipColors(backgroundColor = c) else ChipDefaults.secondaryChipColors(),
                     modifier = Modifier.fillMaxWidth())
             }
         }
-        item { Text("Lunes, miércoles y domingo: pádel. Sábado: bici.", fontSize = 10.sp, color = Gris, textAlign = TextAlign.Center) }
     }
 }
 
@@ -273,7 +273,7 @@ private fun ListaDia(dia: Dia, ses: Gym.Sesion, now: Long, onEjercicio: (Int) ->
     val actual = Gym.actual(dia)
     ScalingLazyColumn(Modifier.fillMaxSize()) {
         item { Hora(now) }
-        item { Text("${dia.nombre} · ${dia.tag.lowercase()}", fontSize = 12.sp, color = Gris) }
+        item { Text(dia.tag, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Gris) }
         dia.ejercicios.forEachIndexed { i, e ->
             item {
                 val h = ses.hechas(Gym.clave(dia.id, e)).size

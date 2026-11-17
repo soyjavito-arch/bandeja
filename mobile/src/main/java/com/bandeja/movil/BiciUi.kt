@@ -38,15 +38,16 @@ import com.bandeja.shared.Zonas
 import org.json.JSONObject
 
 private fun colorZona(z: Int) = when (z) {
-    1 -> Color(0xFF8E8E99); 2 -> Azul; 3 -> Verde; 4 -> Naranja; 5 -> Rojo; else -> Gris
+    1 -> Gris; 2 -> Azul; 3 -> Verde; 4 -> Descanso; 5 -> Rojo; else -> Gris
 }
 
 @Composable
-fun BiciTab(v: Int) {
+fun BiciTab(v: Int, onInicio: () -> Unit) {
     @Suppress("UNUSED_VARIABLE") val ver = v
     val now = ahora(1000)
     val vivo = Bici.vivo()
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+        Cabecera("Bici", onAtras = onInicio)
         if (vivo != null && vivo.activa && now - vivo.t < 30_000) EnMarcha(vivo)
         else Preparar()
         Spacer(Modifier.height(18.dp))
@@ -60,9 +61,9 @@ private fun EnMarcha(v: Bici.Vivo) {
     var parar by remember { mutableStateOf(false) }
     val z = Zonas.zona(v.hr)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Titulo("Bici", if (v.fuente == "polar") "Polar H10 · pecho" else "Pulso del reloj")
+        Text(if (v.fuente == "polar") "Polar H10 · pecho" else "Pulso del reloj", color = Gris, fontSize = 15.sp)
         Spacer(Modifier.weight(1f))
-        Text(Fechas.hms(v.segundos), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+        Text(Fechas.hms(v.segundos), color = Tinta, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
     }
     Caja(color = Tarjeta2) {
         Row(verticalAlignment = Alignment.Bottom) {
@@ -104,7 +105,7 @@ private fun EnMarcha(v: Bici.Vivo) {
 @Composable
 private fun Dato(t: String, v: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(v, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text(v, color = Tinta, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text(t, color = Gris, fontSize = 12.sp)
     }
 }
@@ -128,7 +129,7 @@ private fun Grafica(hrs: List<Int>, modifier: Modifier) {
             val x = size.width * i / (datos.size - 1)
             if (i == 0) p.moveTo(x, y(b)) else p.lineTo(x, y(b))
         }
-        drawPath(p, Naranja, style = Stroke(width = 5f))
+        drawPath(p, Descanso, style = Stroke(width = 5f))
     }
 }
 
@@ -140,7 +141,7 @@ private fun CajaRitmo(r: JSONObject) {
     val ms = r.optLong("ms")
     Caja(color = Tarjeta2) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Cambios de ritmo", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Cambios de ritmo", color = Tinta, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.weight(1f))
             Text("${r.optInt("lo")} → ${r.optInt("hi")} ppm", color = Gris, fontSize = 14.sp)
         }
@@ -156,7 +157,7 @@ private fun CajaRitmo(r: JSONObject) {
             val h = hechos!!.optJSONArray(i) ?: continue
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
                 Text("${i + 1}", color = Gris, fontSize = 16.sp, modifier = Modifier.width(28.dp))
-                Text("subida ${Fechas.mmss(h.optLong(0))}", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("subida ${Fechas.mmss(h.optLong(0))}", color = Tinta, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Text(if (h.optLong(1) > 0) "recup. ${Fechas.mmss(h.optLong(1))}" else "", color = Gris, fontSize = 16.sp)
             }
         }
@@ -167,11 +168,11 @@ private fun CajaRitmo(r: JSONObject) {
 private fun Preparar() {
     var aj by remember { mutableStateOf(Bici.ajustes()) }
     fun set(n: Bici.Ajustes) { aj = n; Bici.guardar(n) }
-    Titulo("Bici", "Spinning con el Polar H10 (${Bici.POLAR_ID})")
+    Text("Spinning con el Polar H10 (${Bici.POLAR_ID})", color = Gris, fontSize = 14.sp, modifier = Modifier.padding(bottom = 8.dp))
     Caja {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(if (aj.gps) "Exterior · GPS" else "Spinning (interior)", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(if (aj.gps) "Exterior · GPS" else "Spinning (interior)", color = Tinta, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Text("Activa el GPS solo si sales a la calle", color = Gris, fontSize = 12.sp)
             }
             Switch(checked = aj.gps, onCheckedChange = { set(aj.copy(gps = it)) })
@@ -180,7 +181,7 @@ private fun Preparar() {
     Spacer(Modifier.height(10.dp))
     Caja {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Cambios de ritmo", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("Cambios de ritmo", color = Tinta, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Switch(checked = aj.on, onCheckedChange = { set(aj.copy(on = it)) })
         }
         if (aj.on) {
@@ -191,7 +192,7 @@ private fun Preparar() {
         }
     }
     Spacer(Modifier.height(12.dp))
-    Pildora("Empezar con el Polar", Naranja, Modifier.fillMaxWidth(), txt = Color.Black) { Sync.enviar(Bici.CMD, "start:polar") }
+    Pildora("Empezar con el Polar", Naranja, Modifier.fillMaxWidth()) { Sync.enviar(Bici.CMD, "start:polar") }
     Spacer(Modifier.height(8.dp))
     Pildora("Empezar con el pulso del reloj", Tarjeta2, Modifier.fillMaxWidth()) { Sync.enviar(Bici.CMD, "start:reloj") }
     Text("Se graba en el reloj. Si no arranca desde aquí, ábrelo en el reloj: Bici.", color = Gris, fontSize = 12.sp,
@@ -201,7 +202,7 @@ private fun Preparar() {
 @Composable
 private fun Fila(t: String, v: String, menos: () -> Unit, mas: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(t, color = Color.White, fontSize = 15.sp, modifier = Modifier.weight(1f))
+        Text(t, color = Tinta, fontSize = 15.sp, modifier = Modifier.weight(1f))
         Paso(v, "", onMenos = menos, onMas = mas)
     }
 }
@@ -210,7 +211,7 @@ private fun Fila(t: String, v: String, menos: () -> Unit, mas: () -> Unit) {
 private fun Historial() {
     val claves = Docs.keys("bici-").sortedDescending()
     if (claves.isEmpty()) return
-    Text("Entrenos", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+    Text("Entrenos", color = Tinta, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
     claves.take(30).forEach { k ->
         val d = Docs.get(k) ?: return@forEach
         val ini = Fechas.desdeIso(d.optString("inicio")) ?: 0L
@@ -227,7 +228,7 @@ private fun Historial() {
                 add("🔥 ${d.optInt("kcal")} kcal")
                 if (d.has("km") && !d.isNull("km")) add("${d.optDouble("km")} km")
             }
-            Text(partes.joinToString("  ·  "), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(partes.joinToString("  ·  "), color = Tinta, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             d.optJSONArray("cambios")?.let { c ->
                 if (c.length() > 0) Text("${c.length()} cambios: " + (0 until c.length()).joinToString("  ") { Fechas.mmss(c.optJSONArray(it)?.optLong(0) ?: 0) },
                     color = Gris, fontSize = 13.sp)

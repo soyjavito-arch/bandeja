@@ -11,15 +11,28 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import android.view.WindowManager
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +55,7 @@ class MainActivity : ComponentActivity() {
             pedirAvisos.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(primary = Azul, background = Fondo, surface = Fondo)) {
+            MaterialTheme(colorScheme = lightColorScheme(primary = Azul, background = Fondo, surface = Tarjeta, onSurface = Tinta, onBackground = Tinta)) {
                 App()
             }
         }
@@ -58,31 +71,48 @@ class MainActivity : ComponentActivity() {
 fun App() {
     val ctx = LocalContext.current
     val v by Docs.version.collectAsState()
-    var tab by rememberSaveable { mutableStateOf("gym") }
+    var seccion by rememberSaveable { mutableStateOf("inicio") }
     // Con sesión de gym abierta, la notificación fija mantiene el descanso aunque cambies de app.
     LaunchedEffect(v) {
         val s = Gym.sesion()
         if (s.inicio > 0 && s.fin == 0L) DescansoService.arrancar(ctx)
     }
-    Scaffold(
-        containerColor = Fondo,
-        bottomBar = {
-            NavigationBar(containerColor = Tarjeta) {
-                listOf("gym" to "🏋️  Gym", "padel" to "🎾  Pádel", "bici" to "🚴  Bici").forEach { (id, txt) ->
-                    NavigationBarItem(
-                        selected = tab == id, onClick = { tab = id },
-                        icon = {}, label = { Text(txt, fontSize = 15.sp) },
-                        colors = NavigationBarItemDefaults.colors(indicatorColor = Tarjeta2),
-                    )
-                }
-            }
-        },
-    ) { pad ->
-        Box(Modifier.fillMaxSize().background(Fondo).padding(pad)) {
-            when (tab) {
-                "padel" -> PadelTab(v)
-                "bici" -> BiciTab(v)
-                else -> GymTab(v, onIr = { tab = it })
+    // En Gym y Bici la pantalla no se apaga mientras la app está delante (al minimizarla, sí).
+    DisposableEffect(seccion) {
+        val w = (ctx as? android.app.Activity)?.window
+        if (seccion == "gym" || seccion == "bici") w?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else w?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { }
+    }
+    Box(Modifier.fillMaxSize().background(Fondo).systemBarsPadding()) {
+        when (seccion) {
+            "gym" -> { BackHandler { seccion = "inicio" }; GymTab(v, onInicio = { seccion = "inicio" }) }
+            "padel" -> { BackHandler { seccion = "inicio" }; PadelTab(v, onInicio = { seccion = "inicio" }) }
+            "bici" -> { BackHandler { seccion = "inicio" }; BiciTab(v, onInicio = { seccion = "inicio" }) }
+            else -> Inicio { seccion = it }
+        }
+    }
+}
+
+/** Al abrir la app: eliges qué toca. */
+@Composable
+private fun Inicio(onElegir: (String) -> Unit) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Spacer(Modifier.height(30.dp))
+        Text("¿QUÉ TOCA HOY?", color = Tinta, fontSize = 36.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(10.dp))
+        listOf(
+            Triple("gym", "🏋️  GYM", "Empuje · Pierna · Tirón") to Azul,
+            Triple("padel", "🎾  PÁDEL", "Partidos y marcador") to Verde,
+            Triple("bici", "🚴  BICI", "Spinning con el Polar") to Naranja,
+        ).forEach { (t, color) ->
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 8.dp).height(130.dp).clip(RoundedCornerShape(20.dp))
+                    .background(color).clickable { onElegir(t.first) }.padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(t.second, color = Color.White, fontSize = 40.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+                Text(t.third, color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp)
             }
         }
     }

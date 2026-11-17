@@ -248,4 +248,65 @@ object Gym {
         val h = sesion().hechas(clave(dia.id, ej))
         return (0 until ej.numSeries).firstOrNull { it !in h } ?: (ej.numSeries - 1).coerceAtLeast(0)
     }
+
+    /** Botón «Descanso» de la tabla: arranca (o reinicia) el descanso de esa serie a mano. */
+    fun empezarDescanso(dia: Dia, ej: Ejercicio, serie: Int) {
+        if (ej.descansoSeg <= 0) return
+        val now = System.currentTimeMillis()
+        val s = sesion()
+        guardar(s.copy(dia = dia.id, timer = Temporizador("descanso", clave(dia.id, ej), serie, ej.descansoSeg,
+            now + ej.descansoSeg * 1000L, false, 0)))
+    }
+
+    /** Quita el descanso o la serie por tiempo en marcha (la ✕ del recuadro). */
+    fun quitarTemporizador() {
+        val s = sesion()
+        if (s.timer != null) guardar(s.copy(timer = null))
+    }
+
+    /** Días entrenados de cada entreno: {"martes": ["2026-10-27", ...]}. */
+    fun sesiones(): Map<String, List<String>> {
+        val o = Docs.get("_sesiones") ?: return emptyMap()
+        val m = HashMap<String, List<String>>()
+        o.keys().forEach { k -> val a = o.optJSONArray(k); m[k] = (0 until (a?.length() ?: 0)).map { a!!.optString(it) } }
+        return m
+    }
+
+    /** Borra un día entrenado (si fue de prueba). */
+    fun quitarSesion(dia: String, fecha: String) {
+        val ses = Docs.get("_sesiones") ?: return
+        val a = ses.optJSONArray(dia) ?: return
+        val list = (0 until a.length()).map { a.optString(it) }.filter { it != fecha }
+        ses.put(dia, JSONArray(list))
+        Docs.put("_sesiones", ses)
+    }
+
+    /**
+     * Entrenos hechos en el ciclo actual: cada uno cuenta desde que se completó el ciclo anterior.
+     * Cuando se han hecho los tres, el lunes siguiente empieza un ciclo nuevo (todos en blanco).
+     */
+    fun hechosCiclo(): Set<String> {
+        val ids = Rutina.dias.map { it.id }.toSet()
+        val todas = sesiones().filterKeys { it in ids }.flatMap { (d, f) -> f.map { it to d } }.sortedBy { it.first }
+        var desde = ""
+        val hechos = HashSet<String>()
+        for ((fecha, dia) in todas) {
+            if (fecha < desde) continue
+            hechos.add(dia)
+            if (hechos.size == ids.size) {
+                desde = lunesSiguiente(fecha)
+                hechos.clear()
+            }
+        }
+        // Si el ciclo se acabó pero aún no es lunes, se siguen viendo los tres hechos.
+        if (hechos.isEmpty() && desde.isNotEmpty() && Fechas.hoy() < desde) return ids
+        return hechos
+    }
+
+    private fun lunesSiguiente(fecha: String): String {
+        val f = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        val c = java.util.Calendar.getInstance().apply { time = f.parse(fecha)!! }
+        do { c.add(java.util.Calendar.DAY_OF_MONTH, 1) } while (c.get(java.util.Calendar.DAY_OF_WEEK) != java.util.Calendar.MONDAY)
+        return f.format(c.time)
+    }
 }
