@@ -231,6 +231,25 @@ object Gym {
         guardar(s.copy(tiempos = s.tiempos + (key to (System.currentTimeMillis() to 0L))))
     }
 
+    /**
+     * Registro de la sesión para las estadísticas: "gym-AAAA-MM-DD-<rutina>" con tiempo, kcal y pulso.
+     * Lo escribe el reloj (con pulso de verdad). Si solo va el móvil, kcal estimadas (est = true),
+     * y nunca pisa un registro que ya tenga datos del reloj.
+     */
+    fun registrar(s: Sesion, kcal: Int?, pm: Int?, pmax: Int?, est: Boolean) {
+        val dia = s.dia ?: return
+        if (s.inicio == 0L) return
+        val k = "gym-${s.fecha}-$dia"
+        val prev = Docs.get(k)
+        if (est && prev != null && !prev.optBoolean("kcalEst")) return
+        Docs.put(k, JSONObject().apply {
+            put("fecha", s.fecha); put("dia", dia); put("inicio", Fechas.iso(s.inicio))
+            put("dur", s.duracionMs(System.currentTimeMillis()) / 1000)
+            put("kcal", kcal ?: JSONObject.NULL); put("pm", pm ?: JSONObject.NULL); put("pmax", pmax ?: JSONObject.NULL)
+            put("kcalEst", est)
+        })
+    }
+
     /** Deshace «Terminar»: el cronómetro sigue desde donde se quedó (sin contar el rato parado). */
     fun reanudarSesion() {
         val s = sesion()

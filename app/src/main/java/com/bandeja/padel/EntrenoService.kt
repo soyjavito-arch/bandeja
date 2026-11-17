@@ -100,6 +100,9 @@ class EntrenoService : Service() {
     private var avisadoFin = 0L
     private var gymKcal = 0.0
     private var gymInicio = 0L
+    private var gymSuma = 0L
+    private var gymN = 0L
+    private var gymMax = 0
     private var tickN = 0L
     private var grab: Grabacion? = null
     private var notifTexto = ""
@@ -167,7 +170,10 @@ class EntrenoService : Service() {
         if (s.inicio == 0L || s.fin > 0 || s.fecha != Fechas.hoy()) {
             // Sesión terminada (o no empezada): se deja de medir.
             if (s.fin > 0 || tickN > 30) {
-                if (gymInicio != 0L) Pulso.publicar(Pulsometro.bpm.value, gymKcal.toInt())
+                if (gymInicio != 0L) {
+                    Pulso.publicar(Pulsometro.bpm.value, gymKcal.toInt())
+                    if (s.inicio == gymInicio) Gym.registrar(s, gymKcal.toInt(), if (gymN > 0) (gymSuma / gymN).toInt() else null, gymMax.takeIf { it > 0 }, false)
+                }
                 gymActivo = false
                 Pulsometro.parar()
             }
@@ -175,13 +181,21 @@ class EntrenoService : Service() {
         }
         if (gymInicio != s.inicio) {
             gymInicio = s.inicio
-            gymKcal = getSharedPreferences("gym", MODE_PRIVATE).getFloat("kcal_${s.inicio}", 0f).toDouble()
+            val pr = getSharedPreferences("gym", MODE_PRIVATE)
+            gymKcal = pr.getFloat("kcal_${s.inicio}", 0f).toDouble()
+            gymSuma = pr.getLong("suma_${s.inicio}", 0L); gymN = pr.getLong("n_${s.inicio}", 0L); gymMax = pr.getInt("max_${s.inicio}", 0)
         }
         val hr = Pulsometro.bpm.value
-        if (hr > 0) gymKcal += Kcal.porMinuto(hr) / 60.0
+        if (hr > 0) {
+            gymKcal += Kcal.porMinuto(hr) / 60.0
+            gymSuma += hr; gymN++; if (hr > gymMax) gymMax = hr
+        }
         if (tickN % 10 == 0L) {
             Pulso.publicar(hr, gymKcal.toInt())
-            getSharedPreferences("gym", MODE_PRIVATE).edit().putFloat("kcal_${s.inicio}", gymKcal.toFloat()).apply()
+            getSharedPreferences("gym", MODE_PRIVATE).edit().putFloat("kcal_${s.inicio}", gymKcal.toFloat())
+                .putLong("suma_${s.inicio}", gymSuma).putLong("n_${s.inicio}", gymN).putInt("max_${s.inicio}", gymMax).apply()
+            // Para las estadísticas de día, semana y mes.
+            Gym.registrar(s, gymKcal.toInt(), if (gymN > 0) (gymSuma / gymN).toInt() else null, gymMax.takeIf { it > 0 }, false)
         }
         val t = s.timer
         val texto = if (t != null && !t.terminado(now)) {

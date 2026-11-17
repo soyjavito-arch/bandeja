@@ -27,6 +27,14 @@ class DescansoService : Service() {
     private val h = Handler(Looper.getMainLooper())
     private var avisado = ""
     private var ultimoTexto = ""
+    private var n = 0L
+
+    /** Sin el reloj, el móvil apunta el tiempo y unas kcal estimadas (pulso típico de gym, 110). */
+    private fun registrar(s: Gym.Sesion) {
+        if (com.bandeja.shared.Pulso.leer() != null) return // el reloj mide de verdad: lo apunta él
+        val min = s.duracionMs(System.currentTimeMillis()) / 60000.0
+        Gym.registrar(s, Math.round(com.bandeja.shared.Kcal.porMinuto(110) * min).toInt(), null, null, true)
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -47,7 +55,11 @@ class DescansoService : Service() {
             val now = System.currentTimeMillis()
             Gym.tick(now)
             val s = Gym.sesion()
-            if (s.inicio == 0L || s.fin > 0) { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return }
+            if (s.inicio == 0L || s.fin > 0) {
+                if (s.fin > 0) registrar(s)
+                stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return
+            }
+            if (++n % 15 == 0L) registrar(s)
             val t = s.timer
             val nombre = t?.let { tt ->
                 val d = Rutina.dia(tt.key.substringBefore('-'))
