@@ -72,7 +72,11 @@ fun PadelTab(v: Int, onInicio: () -> Unit) {
             Caja { Text("No hay partido en marcha. Empiézalo en el reloj y lo verás aquí en directo.", color = Gris, fontSize = 14.sp) }
             Spacer(Modifier.height(16.dp))
         }
-        Text("Partidos", color = Tinta, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Partidos", color = Tinta, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            // Para apuntar un partido que no se grabó con el reloj.
+            Pildora("+ Añadir a mano", Verde) { editando = NUEVO }
+        }
         Spacer(Modifier.height(6.dp))
         val todos = Partidos.todos()
         if (todos.isEmpty()) Text("Todavía no hay partidos guardados.", color = Gris, fontSize = 14.sp)
@@ -195,11 +199,20 @@ private fun ConfirmarBorrar(onSi: () -> Unit, onNo: () -> Unit) {
     )
 }
 
+private const val NUEVO = "nuevo"
+
 @Composable
 private fun EditarPartido(key: String, onCerrar: () -> Unit) {
     val ctx = LocalContext.current
-    val p = remember(key) { Partidos.leer(key) }
+    val nuevo = key == NUEVO
+    // Partido nuevo a mano: hoy a esta hora, al mejor de 3, un set 0-0 y 90 minutos.
+    val p = remember(key) {
+        if (nuevo) Partidos.Resumen(NUEVO, System.currentTimeMillis() / 60_000 * 60_000, listOf(Triple(0, 0, "normal")),
+            null, true, 90 * 60L, null, null, false, "")
+        else Partidos.leer(key)
+    }
     if (p == null) { androidx.compose.runtime.LaunchedEffect(Unit) { onCerrar() }; return }
+    var minutos by rememberSaveable(key) { mutableStateOf((p.dur / 60).toInt()) }
     val sets = remember(key) { mutableStateListOf<Pair<Int, Int>>().apply { addAll(p.sets.map { it.first to it.second }) } }
     var nota by rememberSaveable(key) { mutableStateOf(p.nota) }
     var unSet by rememberSaveable(key) { mutableStateOf(p.unSet) }
@@ -208,7 +221,7 @@ private fun EditarPartido(key: String, onCerrar: () -> Unit) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Cabecera("Editar partido", "‹", onAtras = onCerrar)
+            Cabecera(if (nuevo) "Nuevo partido" else "Editar partido", "‹", onAtras = onCerrar)
         }
         Caja {
             Text("Fecha y hora", color = Gris, fontSize = 13.sp)
@@ -225,6 +238,13 @@ private fun EditarPartido(key: String, onCerrar: () -> Unit) {
                         fecha = Calendar.getInstance().apply { timeInMillis = fecha; set(Calendar.HOUR_OF_DAY, h); set(Calendar.MINUTE, min) }.timeInMillis
                     }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show()
                 }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Caja {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Duración (min)", color = Gris, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Paso("$minutos", "", Tinta, onMenos = { minutos = (minutos - 5).coerceAtLeast(5) }, onMas = { minutos = (minutos + 5).coerceAtMost(240) })
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -255,11 +275,13 @@ private fun EditarPartido(key: String, onCerrar: () -> Unit) {
         OutlinedTextField(value = nota, onValueChange = { nota = it }, label = { Text("Nota") }, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(16.dp))
         Pildora("Guardar", Verde, Modifier.fillMaxWidth()) {
-            Partidos.editar(key, sets.toList(), nota, unSet, if (fecha != p.inicio) fecha else null)
+            if (nuevo) Partidos.crear(fecha, sets.toList(), nota, unSet, minutos * 60L)
+            else Partidos.editar(key, sets.toList(), nota, unSet, if (fecha != p.inicio) fecha else null,
+                if (minutos * 60L != p.dur / 60 * 60) minutos * 60L else null)
             onCerrar()
         }
         Spacer(Modifier.height(10.dp))
-        Pildora("Borrar partido", Rojo, Modifier.fillMaxWidth()) { borrar = true }
+        if (!nuevo) Pildora("Borrar partido", Rojo, Modifier.fillMaxWidth()) { borrar = true }
         Spacer(Modifier.height(20.dp))
     }
     if (borrar) ConfirmarBorrar(onSi = { Docs.delete(key); borrar = false; onCerrar() }, onNo = { borrar = false })

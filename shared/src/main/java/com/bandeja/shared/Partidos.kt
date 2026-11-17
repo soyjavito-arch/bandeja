@@ -84,9 +84,25 @@ object Partidos {
 
     fun todos(): List<Resumen> = Docs.keys("padel-").mapNotNull { leer(it) }.sortedByDescending { it.inicio }
 
+    /** Partido apuntado a mano en el móvil (no se grabó con el reloj). */
+    fun crear(inicio: Long, sets: List<Pair<Int, Int>>, nota: String, unSet: Boolean, durSeg: Long) {
+        var t = inicio
+        while (Docs.get(clave(t)) != null) t += 60_000 // no pisar otro partido a la misma hora
+        val k = clave(t)
+        Docs.put(k, JSONObject().apply {
+            put("fecha", Fechas.dia(t)); put("inicio", Fechas.iso(t)); put("dur", durSeg)
+            put("terminado", true); put("ptos", JSONArray().put(0).put(0))
+            put("pm", JSONObject.NULL); put("pmax", JSONObject.NULL); put("pmin", JSONObject.NULL); put("kcal", JSONObject.NULL)
+            put("hr", JSONArray()); put("reglas", JSONObject.NULL); put("src", "manual")
+            put("sets", JSONArray())
+        })
+        editar(k, sets, nota, unSet, null, durSeg)
+    }
+
     /** Guarda los cambios hechos a mano en el móvil. */
-    fun editar(key: String, sets: List<Pair<Int, Int>>, nota: String, unSet: Boolean, nuevaFecha: Long?) {
+    fun editar(key: String, sets: List<Pair<Int, Int>>, nota: String, unSet: Boolean, nuevaFecha: Long?, durSeg: Long? = null) {
         val d = Docs.get(key) ?: return
+        if (durSeg != null) d.put("dur", durSeg)
         val arr = JSONArray()
         var ga = 0; var gb = 0
         sets.forEach { (a, b) ->
