@@ -179,7 +179,8 @@ private fun CajaRitmo(r: JSONObject?) {
     fun set(n: Bici.Ajustes) { aj = n; Bici.guardar(n) }
     val estado = r?.optString("estado") ?: "esperando"
     val num = r?.optInt("num") ?: 0
-    val ms = r?.optLong("ms") ?: 0L
+    // Subiendo: tiempo del esfuerzo. Recuperando: tiempo del descanso, que corre hasta volver a Start.
+    val ms = (if (estado == "recuperando") r?.optLong("rec") else r?.optLong("ms")) ?: 0L
     Caja(color = Tarjeta2) {
         // Sin interruptor: el botón Empezar/Pausar es lo que los enciende y los para.
         Text("Cambios de ritmo", color = Tinta, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
@@ -188,7 +189,7 @@ private fun CajaRitmo(r: JSONObject?) {
             val (txt, color) = if (!aj.marcha) (if (num == 0) "Toca Empezar cuando estés listo" else "En pausa") to Gris else when (estado) {
                 "esperando" -> "Baja a ${aj.lo} para empezar" to Gris
                 "subiendo" -> "¡Sube! Break a ${aj.hi}" to Naranja
-                "recuperando" -> "Recupera · Start a ${aj.lo}" to Azul
+                "recuperando" -> "Descanso · Start a ${aj.lo}" to Azul
                 else -> "¡Hecho! ${aj.n} cambios" to Verde
             }
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -196,7 +197,7 @@ private fun CajaRitmo(r: JSONObject?) {
                     Text(if (num > 0) "CAMBIO $num DE ${aj.n}" else "CAMBIO 1 DE ${aj.n}", color = Gris, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Text(txt, color = color, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
-                Text(Fechas.mmss(ms / 1000), color = if (corriendo) Naranja else Gris, fontSize = 48.sp,
+                Text(Fechas.mmss(ms / 1000), color = if (corriendo) Naranja else if (estado == "recuperando" && aj.marcha) Azul else Gris, fontSize = 48.sp,
                     fontFamily = Barlow, fontWeight = FontWeight.Bold)
             }
             // Empezar / Pausar: con pausa no cuenta ni avisa; al seguir, el cronómetro sigue donde estaba.

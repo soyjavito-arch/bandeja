@@ -666,15 +666,16 @@ private fun BiciEnMarcha(v: JSONObject?, onPausa: () -> Unit, onParar: () -> Uni
                     Pastilla(if (confirmar) "¿Seguro?" else "■ Fin", Color(0xFFC0392B), { if (confirmar) onParar() else confirmar = true })
                 }
             } else if (ritmo != null && verRitmo) {
-                val ms = ritmo.optLong("ms") / 1000
+                // Subiendo: cronómetro del esfuerzo. Recuperando: cronómetro del descanso (hasta volver a Start).
+                val ms = (if (estado == "recuperando") ritmo.optLong("rec") else ritmo.optLong("ms")) / 1000
                 val sube = estado == "subiendo"
                 // Línea 1: en qué cambio vas y su cronómetro (corre de Start a Break). Línea 2: lo siguiente.
                 Text(when (estado) {
                     "esperando" -> "START A ${ritmo.optInt("lo")}"
                     "fin" -> "✓ $n HECHOS"
-                    else -> (if (sube) "▲ " else "■ ") + "$num/$n  ${Fechas.mmss(ms)}"
+                    else -> (if (sube) "▲ " else "▼ ") + "$num/$n  ${Fechas.mmss(ms)}"
                 }, fontSize = 28.sp, lineHeight = 30.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold,
-                    color = if (sube) NaranjaTxt else Color.White)
+                    color = if (sube) NaranjaTxt else if (estado == "recuperando") Color(0xFF5DA3F0) else Color.White)
                 val sig = if (!ritmoActivo) "En pausa" else when (estado) {
                     "subiendo" -> "Break a ${ritmo.optInt("hi")}"
                     "recuperando" -> "Start a ${ritmo.optInt("lo")}"
