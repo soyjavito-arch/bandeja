@@ -91,7 +91,10 @@ object Gym {
         val fin: Long,
         val hechas: Map<String, Set<Int>>,
         val timer: Temporizador?,
+        /** Cronómetro de cada ejercicio: clave -> (inicio, fin). fin = 0 mientras sigue. */
+        val tiempos: Map<String, Pair<Long, Long>> = emptyMap(),
     ) {
+        fun tiempoEjMs(key: String, now: Long): Long? = tiempos[key]?.let { (a, b) -> (if (b > 0) b else if (fin > 0 && fin > a) fin else now) - a }
         fun duracionMs(now: Long): Long = when {
             inicio == 0L -> 0
             fin > 0 -> fin - inicio
@@ -112,7 +115,11 @@ object Gym {
             Temporizador(it.optString("tipo"), it.optString("key"), it.optInt("serie"), it.optInt("total"),
                 it.optLong("fin"), it.optBoolean("pausa"), it.optLong("quedan"))
         }
-        return Sesion(hoy, o.optString("dia").ifEmpty { null }, o.optLong("start"), o.optLong("end"), h, t)
+        val tiempos = HashMap<String, Pair<Long, Long>>()
+        o.optJSONObject("ej")?.let { e ->
+            e.keys().forEach { k -> e.optJSONArray(k)?.let { a -> tiempos[k] = a.optLong(0) to a.optLong(1) } }
+        }
+        return Sesion(hoy, o.optString("dia").ifEmpty { null }, o.optLong("start"), o.optLong("end"), h, t, tiempos)
     }
 
     private fun guardar(s: Sesion) {
@@ -122,6 +129,7 @@ object Gym {
             put("start", s.inicio)
             put("end", s.fin)
             put("done", JSONObject().apply { s.hechas.forEach { (k, v) -> put(k, JSONArray(v.sorted())) } })
+            put("ej", JSONObject().apply { s.tiempos.forEach { (k, v) -> put(k, JSONArray().put(v.first).put(v.second)) } })
             put("timer", s.timer?.let {
                 JSONObject().apply {
                     put("tipo", it.tipo); put("key", it.key); put("serie", it.serie); put("total", it.total)
@@ -163,7 +171,13 @@ object Gym {
             timer = null
         }
         if (!hecha && fin > 0 && ej == ultimo(dia)) fin = 0
-        s = s.copy(dia = dia.id, inicio = inicio, fin = fin, hechas = hechas, timer = timer)
+        // Cronómetro del ejercicio: se para al hacer todas las series y sigue si se desmarca una.
+        val tiempos = s.tiempos.toMutableMap()
+        val te = tiempos[key]
+        if (ej.numSeries > 0 && set.size >= ej.numSeries) {
+            if (te == null) tiempos[key] = now to now else if (te.second == 0L) tiempos[key] = te.first to now
+        } else if (te != null && te.second > 0) tiempos[key] = te.first to 0L
+        s = s.copy(dia = dia.id, inicio = inicio, fin = fin, hechas = hechas, timer = timer, tiempos = tiempos)
         guardar(s)
     }
 
@@ -206,6 +220,15 @@ object Gym {
         val dia = Rutina.dia(diaId) ?: return
         val ej = dia.ejercicios.firstOrNull { clave(dia.id, it) == t.key } ?: return
         marcar(dia, ej, t.serie, true)
+    }
+
+    /** Al abrir un ejercicio arranca su cronómetro (una sola vez; no si ya está hecho). */
+    fun entrarEjercicio(dia: Dia, ej: Ejercicio) {
+        if (ej.numSeries == 0) return
+        val s = sesion()
+        val key = clave(dia.id, ej)
+        if (key in s.tiempos || s.hechas(key).size >= ej.numSeries) return
+        guardar(s.copy(tiempos = s.tiempos + (key to (System.currentTimeMillis() to 0L))))
     }
 
     fun terminarSesion() {

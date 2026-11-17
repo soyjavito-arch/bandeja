@@ -139,7 +139,7 @@ fun Pestanas(sel: String, onSel: (String) -> Unit) {
 }
 
 @Composable
-private fun SesionCaja(ses: Gym.Sesion, now: Long, grande: Boolean) {
+private fun SesionCaja(ses: Gym.Sesion, now: Long, grande: Boolean, ejKey: String? = null) {
     var confirmar by rememberSaveable { mutableStateOf(false) }
     Caja(Modifier.padding(vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -150,11 +150,29 @@ private fun SesionCaja(ses: Gym.Sesion, now: Long, grande: Boolean) {
                 }
                 Text(Fechas.hms(ses.duracionMs(now) / 1000), color = Tinta, fontSize = if (grande) 50.sp else 36.sp,
                     fontFamily = Barlow, fontWeight = FontWeight.Bold)
-                if (grande) Pulso.leer()?.let { (hr, kcal) -> Text("♥ $hr  ·  🔥 $kcal kcal", color = Gris, fontSize = 15.sp) }
+                if (grande) Pulso.leer()?.let { (hr, kcal) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("♥ $hr", color = Rojo, fontSize = 24.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+                        Text("    🔥 $kcal kcal", color = Naranja, fontSize = 24.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
             if (grande && ses.fin == 0L) Pildora("Terminar", Rojo) { confirmar = true }
-            if (!grande) Pulso.leer()?.let { (hr, kcal) ->
-                Text("♥ $hr\n🔥 $kcal kcal", color = Gris, fontSize = 14.sp, textAlign = TextAlign.End)
+            if (!grande) {
+                // Cronómetro del ejercicio: arranca al entrar y se para con la última serie.
+                val ms = ejKey?.let { ses.tiempoEjMs(it, now) }
+                val parado = ejKey != null && (ses.tiempos[ejKey]?.second ?: 0L) > 0
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(if (parado) "Ejercicio ✓" else "Ejercicio", color = if (parado) Verde else Gris, fontSize = 13.sp)
+                    Text(ms?.let { Fechas.mmss(it / 1000) } ?: "--:--", color = if (parado) Verde else Tinta, fontSize = 36.sp,
+                        fontFamily = Barlow, fontWeight = FontWeight.Bold)
+                }
+                Pulso.leer()?.let { (hr, kcal) ->
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("♥ $hr", color = Rojo, fontSize = 24.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+                        Text("🔥 $kcal", color = Naranja, fontSize = 24.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }
@@ -212,7 +230,9 @@ private fun EjercicioPantalla(dia: Dia, idx: Int, ses: Gym.Sesion, now: Long, on
     val t = ses.timer?.takeIf { ses.fin == 0L }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp)) {
         Spacer(Modifier.height(6.dp))
-        if (ses.inicio > 0) SesionCaja(ses, now, grande = false)
+        val ejKey = Gym.clave(dia.id, ej)
+        LaunchedEffect(ejKey) { Gym.entrarEjercicio(dia, ej) }
+        if (ses.inicio > 0 || ejKey in ses.tiempos) SesionCaja(ses, now, grande = false, ejKey = ejKey)
         // ‹  ☰ Menú  ›   — moverse nunca cancela el descanso ni la sesión
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             BotonRedondo("‹", 44.dp) { if (idx > 0) onIdx(idx - 1) }
