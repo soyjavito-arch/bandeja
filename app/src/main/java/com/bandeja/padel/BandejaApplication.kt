@@ -10,7 +10,7 @@ class BandejaApplication : Application() {
         Sync.init(this)
         // Órdenes del móvil para el marcador: las aplica la pantalla del marcador si está abierta.
         Sync.escuchar(PadelVivo.CMD) { cmd -> Ordenes.padel?.invoke(cmd) }
-        Sync.escuchar(com.bandeja.shared.Bici.CMD) { cmd -> EntrenoService.orden(this, cmd) }
+        // Las órdenes de la bici (/bici) llegan por EscuchaMovil, también con la app cerrada.
     }
 }
 

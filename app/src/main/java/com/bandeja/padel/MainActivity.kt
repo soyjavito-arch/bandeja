@@ -96,6 +96,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             }
         }
         publicarVivo(forzar = true)
+        pulsoAlMovil(intent)
+        pedirPulsoFondo()
 
         setContent {
             when (modo.value) {
@@ -124,6 +126,32 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     override fun onDestroy() {
         super.onDestroy()
         Ordenes.padel = null
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        pulsoAlMovil(intent)
+    }
+
+    /** Se tocó el aviso «Bici en el móvil»: empieza a mandar el pulso. */
+    private fun pulsoAlMovil(i: android.content.Intent?) {
+        if (i?.getBooleanExtra("pulsoMovil", false) != true) return
+        i.removeExtra("pulsoMovil")
+        EntrenoService.orden(this, "pulso:on")
+        Toast.makeText(this, "Mandando el pulso al móvil", Toast.LENGTH_SHORT).show()
+    }
+
+    private val askFondo = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
+    /** Una vez: permiso para leer el pulso con la app cerrada (lo pide el móvil en la bici). */
+    private fun pedirPulsoFondo() {
+        if (android.os.Build.VERSION.SDK_INT < 33 || !hasBodySensors()) return
+        val p = "android.permission.BODY_SENSORS_BACKGROUND"
+        if (ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED) return
+        val prefs = getSharedPreferences("permisos", MODE_PRIVATE)
+        if (prefs.getBoolean("fondo", false)) return
+        prefs.edit().putBoolean("fondo", true).apply()
+        askFondo.launch(p)
     }
 
     /** «Nuevo partido» y «Nuevo partido a 1 set»: mismos ajustes, cambia solo el número de sets. */

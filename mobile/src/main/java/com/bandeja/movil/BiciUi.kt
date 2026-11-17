@@ -18,6 +18,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import android.Manifest
+import android.os.Build
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,9 +65,19 @@ fun BiciTab(v: Int, onInicio: () -> Unit) {
 @Composable
 private fun EnMarcha(v: Bici.Vivo) {
     var parar by remember { mutableStateOf(false) }
+    val ctx = LocalContext.current
+    // Si la graba el móvil se controla aquí; si la graba el reloj, se le mandan las órdenes.
+    val enMovil by BiciService.activa.collectAsState()
+    val estado by BiciService.estado.collectAsState()
+    fun pausa() = if (enMovil) BiciService.pausa(ctx) else Sync.enviar(Bici.CMD, "pausa")
+    fun terminar() = if (enMovil) BiciService.parar(ctx) else Sync.enviar(Bici.CMD, "parar")
     val z = Zonas.zona(v.hr)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(if (v.fuente == "polar") "Polar H10 · pecho" else "Pulso del reloj", color = Gris, fontSize = 15.sp)
+        Column {
+            Text(if (v.fuente == "polar") "Polar H10 · pecho" else "Pulso del reloj", color = Gris, fontSize = 15.sp)
+            Text(if (enMovil) "Grabando en el móvil" + (if (estado.isNotEmpty()) " · $estado" else "") else "Grabando en el reloj",
+                color = Gris, fontSize = 12.sp)
+        }
         Spacer(Modifier.weight(1f))
         Text(Fechas.hms(v.segundos), color = Tinta, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
     }
@@ -88,7 +104,7 @@ private fun EnMarcha(v: Bici.Vivo) {
     }
     Spacer(Modifier.height(12.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Pildora(if (v.pausa) "▶ Seguir" else "❚❚ Pausa", Tarjeta2, Modifier.weight(1f)) { Sync.enviar(Bici.CMD, "pausa") }
+        Pildora(if (v.pausa) "▶ Seguir" else "❚❚ Pausa", Tarjeta2, Modifier.weight(1f)) { pausa() }
         Pildora("■ Terminar", Rojo, Modifier.weight(1f)) { parar = true }
     }
     if (parar) {
@@ -96,7 +112,7 @@ private fun EnMarcha(v: Bici.Vivo) {
             onDismissRequest = { parar = false },
             title = { Text("¿Terminar la bici?") },
             text = { Text("Se guarda el entreno.") },
-            confirmButton = { TextButton({ Sync.enviar(Bici.CMD, "parar"); parar = false }) { Text("Terminar") } },
+            confirmButton = { TextButton({ terminar(); parar = false }) { Text("Terminar") } },
             dismissButton = { TextButton({ parar = false }) { Text("Seguir") } },
         )
     }
@@ -188,15 +204,31 @@ private fun Preparar() {
             Fila("Número de cambios", "${aj.n}", { set(aj.copy(n = (aj.n - 1).coerceAtLeast(1))) }, { set(aj.copy(n = (aj.n + 1).coerceAtMost(30))) })
             Fila("«Start» al bajar a", "${aj.lo}", { set(aj.copy(lo = (aj.lo - 1).coerceAtLeast(60))) }, { set(aj.copy(lo = (aj.lo + 1).coerceAtMost(aj.hi - 5))) })
             Fila("«Break» al llegar a", "${aj.hi}", { set(aj.copy(hi = (aj.hi - 1).coerceAtLeast(aj.lo + 5))) }, { set(aj.copy(hi = (aj.hi + 1).coerceAtMost(210))) })
-            Text("El último dice «Finish».", color = Gris, fontSize = 12.sp)
+            Text("El último dice «Finish». 🔊 Lo dice el móvil; el reloj solo vibra.", color = Gris, fontSize = 12.sp)
         }
     }
     Spacer(Modifier.height(12.dp))
-    Pildora("Empezar con el Polar", Naranja, Modifier.fillMaxWidth()) { Sync.enviar(Bici.CMD, "start:polar") }
+    val ctx = LocalContext.current
+    var conPolar by remember { mutableStateOf(true) }
+    // Bluetooth (Polar), ubicación (solo con GPS) y avisos; luego empieza aunque se niegue alguno.
+    val permisos = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        BiciService.empezar(ctx, conPolar)
+    }
+    fun empezar(polar: Boolean) {
+        conPolar = polar
+        val lista = buildList {
+            if (Build.VERSION.SDK_INT >= 31) { add(Manifest.permission.BLUETOOTH_SCAN); add(Manifest.permission.BLUETOOTH_CONNECT) }
+            else add(Manifest.permission.ACCESS_FINE_LOCATION)
+            if (aj.gps) add(Manifest.permission.ACCESS_FINE_LOCATION)
+            if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+        }.distinct().filter { ctx.checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED }
+        if (lista.isEmpty()) BiciService.empezar(ctx, polar) else permisos.launch(lista.toTypedArray())
+    }
+    Pildora("Empezar con el Polar", Naranja, Modifier.fillMaxWidth()) { empezar(true) }
     Spacer(Modifier.height(8.dp))
-    Pildora("Empezar con el pulso del reloj", Tarjeta2, Modifier.fillMaxWidth()) { Sync.enviar(Bici.CMD, "start:reloj") }
-    Text("Se graba en el reloj. Si no arranca desde aquí, ábrelo en el reloj: Bici.", color = Gris, fontSize = 12.sp,
-        modifier = Modifier.padding(top = 6.dp))
+    Pildora("Empezar con el pulso del reloj", Tarjeta2, Modifier.fillMaxWidth()) { empezar(false) }
+    Text("Se graba en el móvil. Con el Polar no hace falta el reloj; con el pulso del reloj no hace falta abrir la app en el reloj. " +
+        "Para ir solo con el reloj, ábrelo allí: Bici.", color = Gris, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
 }
 
 @Composable

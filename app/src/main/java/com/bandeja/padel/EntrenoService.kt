@@ -55,18 +55,42 @@ class EntrenoService : Service() {
         fun biciPausa(ctx: Context) = arrancar(ctx, "pausa", null)
         fun biciParar(ctx: Context) = arrancar(ctx, "parar", null)
 
-        /** Órdenes que manda el móvil: "start:polar", "start:reloj", "pausa", "parar". */
+        /** Órdenes que manda el móvil: "pulso:on/off" (el móvil graba la bici), "start:…", "pausa", "parar". */
         fun orden(ctx: Context, cmd: String) {
             when {
+                // Si ya está mandando el pulso basta con apuntar que el móvil sigue pidiéndolo.
+                cmd == "pulso:on" -> if (pulsoActivo) pingMovil = System.currentTimeMillis()
+                    else if (!arrancar(ctx, "pulso", null)) avisoAbrir(ctx)
+                cmd == "pulso:off" -> pingMovil = 0L // el bucle lo para en el siguiente segundo
                 cmd.startsWith("start") -> bici(ctx, !cmd.endsWith("reloj"))
                 cmd == "pausa" -> biciPausa(ctx)
                 cmd == "parar" -> biciParar(ctx)
             }
         }
 
-        private fun arrancar(ctx: Context, accion: String, extra: String?) {
+        @Volatile private var pulsoActivo = false
+        @Volatile private var pingMovil = 0L
+
+        private fun arrancar(ctx: Context, accion: String, extra: String?): Boolean {
             val i = Intent(ctx, EntrenoService::class.java).setAction(accion).putExtra("x", extra)
-            runCatching { ctx.startForegroundService(i) }
+            return runCatching { ctx.startForegroundService(i) }.isSuccess
+        }
+
+        /** Si Android no deja arrancar desde segundo plano: aviso para tocarlo y empezar a mandar el pulso. */
+        private fun avisoAbrir(ctx: Context) {
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            nm.createNotificationChannel(NotificationChannel("pulso", "Pulso al móvil", NotificationManager.IMPORTANCE_HIGH))
+            val abrir = PendingIntent.getActivity(ctx, 3, Intent(ctx, MainActivity::class.java).putExtra("pulsoMovil", true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            runCatching {
+                nm.notify(8, Notification.Builder(ctx, "pulso")
+                    .setSmallIcon(R.drawable.ic_launcher_foreground)
+                    .setContentTitle("Bici en el móvil")
+                    .setContentText("Toca para mandarle tu pulso")
+                    .setContentIntent(abrir).setAutoCancel(true).setOnlyAlertOnce(true)
+                    .setCategory(Notification.CATEGORY_WORKOUT)
+                    .build())
+            }
         }
     }
 
@@ -100,6 +124,12 @@ class EntrenoService : Service() {
                 grab = Grabacion(intent.getStringExtra("x") != "reloj", Bici.ajustes())
                 _bici.value = true
             }
+            "pulso" -> {
+                pingMovil = System.currentTimeMillis()
+                if (!pulsoActivo) { pulsoActivo = true; Pulsometro.empezar(this) }
+                getSystemService(NotificationManager::class.java).cancel(8)
+            }
+            "pulsoOff" -> pararPulso()
             "pausa" -> grab?.pausar()
             "parar" -> {
                 grab?.terminar()
@@ -122,7 +152,8 @@ class EntrenoService : Service() {
             val now = System.currentTimeMillis()
             if (gymActivo) tickGym(now)
             grab?.tick(now)
-            if (!gymActivo && grab == null) {
+            if (pulsoActivo) tickPulso(now)
+            if (!gymActivo && grab == null && !pulsoActivo) {
                 parar()
                 return
             }
@@ -161,6 +192,20 @@ class EntrenoService : Service() {
             avisadoFin = t.fin
             Avisos.vibrar(this, Avisos.FIN_DESCANSO)
         }
+    }
+
+    /** Manda el pulso de la muñeca al móvil cada segundo. Se para si el móvil deja de pedirlo. */
+    private fun tickPulso(now: Long) {
+        if (now - pingMovil > 30_000) { pararPulso(); return }
+        val hr = Pulsometro.bpm.value
+        if (hr > 0) com.bandeja.shared.Sync.enviar("/hr", hr.toString())
+        if (!gymActivo && grab == null && tickN % 5 == 0L) actualizar("Bici en el móvil", "Mandando pulso ♥ ${if (hr > 0) hr else "--"}")
+    }
+
+    private fun pararPulso() {
+        if (!pulsoActivo) return
+        pulsoActivo = false
+        Pulsometro.parar()
     }
 
     private fun parar() {
@@ -208,6 +253,7 @@ class EntrenoService : Service() {
         grab = null
         _bici.value = false
         if (gymActivo) Pulsometro.parar()
+        if (pulsoActivo) { pulsoActivo = false; Pulsometro.parar() }
         main.removeCallbacksAndMessages(null)
         wake?.let { if (it.isHeld) it.release() }
         super.onDestroy()
