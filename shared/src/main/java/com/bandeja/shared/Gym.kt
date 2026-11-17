@@ -145,6 +145,8 @@ object Gym {
         var inicio = s.inicio
         var fin = s.fin
         var timer = s.timer
+        // Otra rutina el mismo día después de terminar una: empieza una sesión nueva.
+        if (hecha && fin > 0 && s.dia != dia.id) { inicio = 0L; fin = 0L; timer = null }
         if (hecha) {
             if (inicio == 0L) inicio = now
             // Se guarda el día con los valores (aunque no se hayan cambiado).
@@ -170,7 +172,8 @@ object Gym {
         val now = System.currentTimeMillis()
         val s = sesion()
         val key = clave(dia.id, ej)
-        guardar(s.copy(dia = dia.id, inicio = if (s.inicio == 0L) now else s.inicio,
+        val nueva = s.inicio == 0L || (s.fin > 0 && s.dia != dia.id)
+        guardar(s.copy(dia = dia.id, inicio = if (nueva) now else s.inicio, fin = if (nueva) 0L else s.fin,
             timer = Temporizador("trabajo", key, serie, ej.trabajoSeg, now + ej.trabajoSeg * 1000L, false, 0)))
     }
 

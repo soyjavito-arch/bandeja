@@ -190,8 +190,10 @@ fun GymReloj(onSalir: () -> Unit) {
 
     @Suppress("UNUSED_VARIABLE") val ver = v
     val ses = Gym.sesion()
-    var diaId by remember { mutableStateOf(ses.dia.takeIf { ses.inicio > 0 }) }
-    var pantalla by remember { mutableStateOf(if (diaId == null) "dias" else if (ses.inicio > 0 && ses.fin == 0L) "serie" else "lista") }
+    // Solo se entra directo en una rutina si hay una sesión en marcha; si ya se terminó, se eligen las 3.
+    val enMarcha = ses.inicio > 0 && ses.fin == 0L
+    var diaId by remember { mutableStateOf(ses.dia.takeIf { enMarcha }) }
+    var pantalla by remember { mutableStateOf(if (diaId == null) "dias" else "serie") }
     val dia = diaId?.let { Rutina.dia(it) }
     var idx by remember { mutableIntStateOf(dia?.let { Gym.actual(it) } ?: 0) }
     var verControles by remember { mutableStateOf(false) }
