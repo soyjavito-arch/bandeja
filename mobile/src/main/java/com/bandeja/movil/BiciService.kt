@@ -192,7 +192,8 @@ class BiciService : Service() {
         var kmh: Double? = null
         var ultimaPos: Location? = null
         // Siempre existe; se enciende/apaga y ajusta en plena bici desde la pantalla.
-        val ritmo = Bici.Ritmo(aj.n, aj.lo, aj.hi).apply { activo = aj.on }
+        // Empieza en pausa: se arranca con el botón «Empezar» de la caja de cambios de ritmo.
+        val ritmo = Bici.Ritmo(aj.n, aj.lo, aj.hi).apply { activo = false; Bici.guardar(aj.copy(marcha = false)) }
         var polar: PolarBle? = null
         var lm: LocationManager? = null
         var ultimoSeg = -1L

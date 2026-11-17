@@ -17,19 +17,21 @@ object Bici {
     const val CMD = "/bici"
     const val POLAR_ID = "E2649629"
 
-    data class Ajustes(val gps: Boolean = false, val on: Boolean = false, val n: Int = 6, val lo: Int = 120, val hi: Int = 165)
+    /** marcha: los cambios de ritmo están en marcha (botón Empezar/Pausar); al empezar una bici se ponen en pausa. */
+    data class Ajustes(val gps: Boolean = false, val on: Boolean = false, val n: Int = 6, val lo: Int = 120, val hi: Int = 165,
+                       val marcha: Boolean = false)
 
     fun ajustes(): Ajustes {
         val o = Docs.get(CFG) ?: return Ajustes()
         val c = o.optJSONObject("cambios") ?: JSONObject()
         return Ajustes(o.optBoolean("gps"), c.optBoolean("on"), c.optInt("n", 6).coerceIn(1, 30),
-            c.optInt("lo", 120), c.optInt("hi", 165))
+            c.optInt("lo", 120), c.optInt("hi", 165), c.optBoolean("marcha"))
     }
 
     fun guardar(a: Ajustes) {
         Docs.put(CFG, JSONObject().apply {
             put("gps", a.gps)
-            put("cambios", JSONObject().apply { put("on", a.on); put("n", a.n); put("lo", a.lo); put("hi", a.hi) })
+            put("cambios", JSONObject().apply { put("on", a.on); put("n", a.n); put("lo", a.lo); put("hi", a.hi); put("marcha", a.marcha) })
         })
     }
 
@@ -51,8 +53,20 @@ object Bici {
         val hechos = ArrayList<Cambio>()
 
         /** Devuelve "start", "break", "finish" o null. */
+        private var pausaIni = 0L
+
+        /** Activo = encendido y en marcha. Al pausar en plena subida el cronómetro se congela y luego sigue. */
         fun ajustar(a: Ajustes) {
-            activo = a.on; n = a.n; lo = a.lo; hi = a.hi
+            val nuevo = a.on && a.marcha
+            val now = System.currentTimeMillis()
+            if (activo && !nuevo) pausaIni = now
+            if (!activo && nuevo && pausaIni > 0) {
+                if (estado == "subiendo") desde += now - pausaIni
+                if (estado == "recuperando") finRec += now - pausaIni
+                pausaIni = 0
+            }
+            activo = nuevo
+            n = a.n; lo = a.lo; hi = a.hi
             if (estado == "fin" && num < n) estado = "recuperando"
         }
 
@@ -81,8 +95,9 @@ object Bici {
         fun json(now: Long): JSONObject = JSONObject().apply {
             put("estado", estado); put("num", num); put("n", n); put("lo", lo); put("hi", hi); put("activo", activo)
             // Cronómetro del cambio: corre de «Start» a «Break» y se queda parado hasta el siguiente «Start».
-            put("ms", if (estado == "subiendo") now - desde else hechos.lastOrNull()?.subidaMs ?: 0)
-            put("rec", if (estado == "recuperando") now - finRec else 0)
+            val t = if (!activo && pausaIni > 0) pausaIni else now
+            put("ms", if (estado == "subiendo") t - desde else hechos.lastOrNull()?.subidaMs ?: 0)
+            put("rec", if (estado == "recuperando") t - finRec else 0)
             put("hechos", JSONArray().apply { hechos.forEach { put(JSONArray().apply { put(it.subidaMs / 1000); put(it.recMs / 1000) }) } })
         }
     }

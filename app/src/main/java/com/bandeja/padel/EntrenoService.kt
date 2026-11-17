@@ -279,7 +279,8 @@ class EntrenoService : Service() {
         var kmh: Double? = null
         var ultimaPos: Location? = null
         // Siempre existe; se enciende/apaga y ajusta en plena bici (también desde el móvil).
-        val ritmo = Bici.Ritmo(aj.n, aj.lo, aj.hi).apply { activo = aj.on }
+        // Empieza en pausa salvo que se encienda en el reloj (allí no hay botón Empezar).
+        val ritmo = Bici.Ritmo(aj.n, aj.lo, aj.hi).apply { activo = aj.on; if (aj.on) Bici.guardar(aj.copy(marcha = true)) }
         var polar: PolarBle? = null
         var lm: LocationManager? = null
         var ultimoSeg = -1L

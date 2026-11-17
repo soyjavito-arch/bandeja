@@ -181,13 +181,11 @@ private fun CajaRitmo(r: JSONObject?) {
     val num = r?.optInt("num") ?: 0
     val ms = r?.optLong("ms") ?: 0L
     Caja(color = Tarjeta2) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Cambios de ritmo", color = Tinta, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-            Switch(checked = aj.on, onCheckedChange = { set(aj.copy(on = it)) })
-        }
-        if (aj.on) {
-            val corriendo = estado == "subiendo"
-            val (txt, color) = when (estado) {
+        // Sin interruptor: el botón Empezar/Pausar es lo que los enciende y los para.
+        Text("Cambios de ritmo", color = Tinta, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+        run {
+            val corriendo = estado == "subiendo" && aj.marcha
+            val (txt, color) = if (!aj.marcha) (if (num == 0) "Toca Empezar cuando estés listo" else "En pausa") to Gris else when (estado) {
                 "esperando" -> "Baja a ${aj.lo} para empezar" to Gris
                 "subiendo" -> "¡Sube! Break a ${aj.hi}" to Naranja
                 "recuperando" -> "Recupera · Start a ${aj.lo}" to Azul
@@ -201,6 +199,9 @@ private fun CajaRitmo(r: JSONObject?) {
                 Text(Fechas.mmss(ms / 1000), color = if (corriendo) Naranja else Gris, fontSize = 48.sp,
                     fontFamily = Barlow, fontWeight = FontWeight.Bold)
             }
+            // Empezar / Pausar: con pausa no cuenta ni avisa; al seguir, el cronómetro sigue donde estaba.
+            Pildora(if (aj.marcha) "❚❚ Pausar cambios" else if (num == 0) "▶ Empezar cambios" else "▶ Seguir cambios",
+                if (aj.marcha) Tarjeta else Naranja, Modifier.fillMaxWidth().padding(vertical = 4.dp)) { set(if (aj.marcha) aj.copy(marcha = false) else aj.copy(on = true, marcha = true)) }
             Fila("Número de cambios", "${aj.n}", { set(aj.copy(n = (aj.n - 1).coerceAtLeast(1))) }, { set(aj.copy(n = (aj.n + 1).coerceAtMost(30))) })
             Fila("«Start» al bajar a", "${aj.lo}", { set(aj.copy(lo = (aj.lo - 1).coerceAtLeast(60))) }, { set(aj.copy(lo = (aj.lo + 1).coerceAtMost(aj.hi - 5))) })
             Fila("«Break» al llegar a", "${aj.hi}", { set(aj.copy(hi = (aj.hi - 1).coerceAtLeast(aj.lo + 5))) }, { set(aj.copy(hi = (aj.hi + 1).coerceAtMost(210))) })
