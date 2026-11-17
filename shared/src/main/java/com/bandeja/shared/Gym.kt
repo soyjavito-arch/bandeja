@@ -188,7 +188,7 @@ object Gym {
         val te = tiempos[key]
         val antes = s.hechas(key).size >= ej.numSeries
         if (ej.numSeries > 0 && set.size >= ej.numSeries) {
-            if (te == null) tiempos[key] = now to now else if (te.second == 0L) tiempos[key] = te.first to now
+            if (te != null && te.second == 0L) tiempos[key] = te.first to now // se para con la última serie
         } else if (antes && te != null && te.second > 0) tiempos[key] = (te.first + now - te.second) to 0L // sigue donde se quedó
         s = s.copy(dia = dia.id, inicio = inicio, fin = fin, hechas = hechas, timer = timer, tiempos = tiempos, pausa = pausa, parado = parado)
         guardar(s)

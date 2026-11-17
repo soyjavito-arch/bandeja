@@ -268,7 +268,6 @@ private fun EjercicioPantalla(dia: Dia, idx: Int, ses: Gym.Sesion, now: Long, on
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp)) {
         Spacer(Modifier.height(6.dp))
         val ejKey = Gym.clave(dia.id, ej)
-        LaunchedEffect(ejKey) { Gym.entrarEjercicio(dia, ej) }
         if (ses.inicio > 0 || ejKey in ses.tiempos || ej.numSeries > 0) SesionCaja(ses, now, grande = false, ejKey = ejKey, dia = dia, ej = ej)
         // ‹  ☰ Menú  ›   — moverse nunca cancela el descanso ni la sesión
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
