@@ -64,7 +64,21 @@ fun StatsPantalla(v: Int, onAtras: () -> Unit) {
         Cabecera("Estadísticas", "‹", onAtras = onAtras)
         Calendario()
         Spacer(Modifier.height(12.dp))
-        Caja {
+        // Gym, Pádel o Bici: cada uno con sus números y gráficas.
+        var vista by rememberSaveable { mutableStateOf("gym") }
+        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(Triple("gym", "GYM", Azul), Triple("padel", "PÁDEL", Verde), Triple("bici", "BICI", Rosa)).forEach { (id, t, c) ->
+                val sel = vista == id
+                Box(Modifier.weight(1f).height(46.dp).clip(RoundedCornerShape(10.dp)).background(if (sel) c else Tarjeta)
+                    .border(1.dp, if (sel) c else Linea, RoundedCornerShape(10.dp)).clickable { vista = id },
+                    contentAlignment = Alignment.Center) {
+                    Text(t, color = if (sel) Color.White else Tinta, fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        if (vista == "padel") StatsPadel()
+        if (vista == "bici") StatsBici()
+        if (vista == "gym") Caja {
             Text("PROGRESIÓN", color = Tinta, fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Rutina.dias.forEach { d ->
@@ -237,6 +251,128 @@ private fun Grafico(titulo: String, datos: List<List<Double?>>, n: Int, sel: Int
             Text(ddmm(dias.first().first), color = Gris, fontSize = 9.sp)
             Spacer(Modifier.weight(1f))
             if (dias.size > 1) Text(ddmm(dias.last().first), color = Gris, fontSize = 9.sp)
+        }
+    }
+}
+
+
+// =================== PÁDEL Y BICI ===================
+
+/** Una cifra grande con su etiqueta. */
+@Composable
+private fun Cifra(valor: String, etiqueta: String, color: Color, modifier: Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(valor, color = color, fontSize = 30.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+        Text(etiqueta, color = Gris, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun FilaCifras(vararg c: Triple<String, String, Color>) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) { c.forEach { Cifra(it.first, it.second, it.third, Modifier.weight(1f)) } }
+}
+
+private fun horas(seg: Long) = if (seg >= 3600) "${seg / 3600}h ${"%02d".format((seg % 3600) / 60)}" else "${seg / 60} min"
+
+/** Este mes y desde siempre, con el mismo formato. */
+@Composable
+private fun <T> Periodos(todos: List<T>, fecha: (T) -> String, contenido: @Composable (List<T>) -> Unit) {
+    val mes = SimpleDateFormat("yyyy-MM", Locale.US).format(java.util.Date())
+    Text("ESTE MES", color = Gris, fontSize = 14.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+    contenido(todos.filter { fecha(it).startsWith(mes) })
+    HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Linea)
+    Text("DESDE SIEMPRE", color = Gris, fontSize = 14.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+    contenido(todos)
+}
+
+@Composable
+private fun StatsPadel() {
+    val ps = com.bandeja.shared.Partidos.todos().sortedBy { it.inicio }
+    Caja {
+        Text("PÁDEL", color = Tinta, fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+        if (ps.isEmpty()) { Text("Todavía no hay partidos.", color = Gris, fontSize = 14.sp); return@Caja }
+        Periodos(ps, { com.bandeja.shared.Fechas.dia(it.inicio) }) { l ->
+            val gan = l.count { it.ganador == "azul" }
+            val per = l.count { it.ganador == "verde" }
+            FilaCifras(
+                Triple("${l.size}", "partidos", Tinta),
+                Triple("$gan-$per", "ganados-perdidos", Azul),
+                Triple(if (gan + per > 0) "${gan * 100 / (gan + per)}%" else "—", "victorias", Verde),
+            )
+            FilaCifras(
+                Triple(horas(l.sumOf { it.dur }), "jugadas", Tinta),
+                Triple("${l.mapNotNull { it.kcal }.sum()}", "kcal", Naranja),
+                Triple(l.mapNotNull { it.pm }.takeIf { it.isNotEmpty() }?.average()?.toInt()?.toString() ?: "—", "pulso medio", Rojo),
+            )
+        }
+        // Últimos 20 partidos: kcal y pulso medio de cada uno.
+        val ult = ps.takeLast(20)
+        if (ult.size >= 2) {
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Linea)
+            var sel by remember(ult.size) { mutableIntStateOf(ult.size - 1) }
+            val dias = ult.map { com.bandeja.shared.Fechas.dia(it.inicio) to it }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Grafico("Kcal por partido", ult.map { listOf(it.kcal?.toDouble()) }, 1, sel, dias, Modifier.weight(1f)) { sel = it }
+                Grafico("Pulso medio", ult.map { listOf(it.pm?.toDouble()) }, 1, sel, dias, Modifier.weight(1f)) { sel = it }
+            }
+            val p = ult[sel.coerceIn(0, ult.size - 1)]
+            Text("${ddmm(com.bandeja.shared.Fechas.dia(p.inicio))}: " + p.sets.joinToString(" ") { "${it.first}-${it.second}" } +
+                " · ${horas(p.dur)}" + (p.kcal?.let { " · 🔥 $it" } ?: "") + (p.pm?.let { " · ♥ $it" } ?: ""),
+                color = Tinta, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+private data class SesionBici(val fecha: String, val dur: Long, val kcal: Int, val pm: Int?, val pmax: Int?, val subida: Double?, val rec: Double?)
+
+@Composable
+private fun StatsBici() {
+    val ss = Docs.keys("bici-").sorted().mapNotNull { k ->
+        val d = Docs.get(k) ?: return@mapNotNull null
+        val c = d.optJSONArray("cambios")
+        val cam = (0 until (c?.length() ?: 0)).mapNotNull { c!!.optJSONArray(it) }
+        SesionBici(d.optString("fecha").ifEmpty { k.removePrefix("bici-").take(10) }, d.optLong("dur"), d.optInt("kcal"),
+            if (d.isNull("pm")) null else d.optInt("pm"), if (d.isNull("pmax")) null else d.optInt("pmax"),
+            cam.map { it.optLong(0) }.filter { it > 0 }.takeIf { it.isNotEmpty() }?.average(),
+            cam.map { it.optLong(1) }.filter { it > 0 }.takeIf { it.isNotEmpty() }?.average())
+    }
+    Caja {
+        Text("BICI", color = Tinta, fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+        if (ss.isEmpty()) { Text("Todavía no hay sesiones de bici.", color = Gris, fontSize = 14.sp); return@Caja }
+        Periodos(ss, { it.fecha }) { l ->
+            FilaCifras(
+                Triple("${l.size}", "sesiones", Tinta),
+                Triple(horas(l.sumOf { it.dur }), "pedaleadas", Tinta),
+                Triple("${l.sumOf { it.kcal }}", "kcal", Naranja),
+            )
+            FilaCifras(
+                Triple(l.mapNotNull { it.pm }.takeIf { it.isNotEmpty() }?.average()?.toInt()?.toString() ?: "—", "pulso medio", Rojo),
+                Triple(l.mapNotNull { it.pmax }.maxOrNull()?.toString() ?: "—", "pulso máx", Rojo),
+                Triple(if (l.isNotEmpty()) "${l.sumOf { it.dur } / l.size / 60} min" else "—", "por sesión", Tinta),
+            )
+        }
+        val ult = ss.takeLast(20)
+        if (ult.size >= 2) {
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Linea)
+            var sel by remember(ult.size) { mutableIntStateOf(ult.size - 1) }
+            val dias = ult.map { it.fecha to it }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Grafico("Minutos", ult.map { listOf(it.dur / 60.0) }, 1, sel, dias, Modifier.weight(1f)) { sel = it }
+                Grafico("Pulso medio", ult.map { listOf(it.pm?.toDouble()) }, 1, sel, dias, Modifier.weight(1f)) { sel = it }
+            }
+            // Cambios de ritmo: si tardas menos en recuperar, estás más en forma.
+            if (ult.any { it.subida != null }) {
+                Spacer(Modifier.height(8.dp))
+                Grafico("Cambios de ritmo: subida y recuperación (seg)", ult.map { listOf(it.subida, it.rec) }, 2, sel, dias, Modifier.fillMaxWidth()) { sel = it }
+                Row {
+                    Box(Modifier.width(14.dp).height(3.dp).background(SERIES[0]).align(Alignment.CenterVertically)); Text(" Subida  ", color = Gris, fontSize = 11.sp)
+                    Box(Modifier.width(14.dp).height(3.dp).background(SERIES[1]).align(Alignment.CenterVertically)); Text(" Recuperación (menos = más en forma)", color = Gris, fontSize = 11.sp)
+                }
+            }
+            val b = ult[sel.coerceIn(0, ult.size - 1)]
+            Text("${ddmm(b.fecha)}: ${horas(b.dur)} · 🔥 ${b.kcal}" + (b.pm?.let { " · ♥ $it" } ?: "") +
+                (b.subida?.let { " · subida ${it.toInt()} s" } ?: "") + (b.rec?.let { " · recup. ${it.toInt()} s" } ?: ""),
+                color = Tinta, fontSize = 13.sp, fontWeight = FontWeight.Medium)
         }
     }
 }
