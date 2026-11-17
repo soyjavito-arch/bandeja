@@ -60,9 +60,11 @@ private fun ddmm(d: String) = if (d.length >= 10) "${d.substring(8, 10)}/${d.sub
 fun StatsPantalla(v: Int, onAtras: () -> Unit) {
     @Suppress("UNUSED_VARIABLE") val ver = v
     var progDia by rememberSaveable { mutableStateOf(Rutina.dias.first().id) }
+    // El día elegido en el calendario manda en todas las pestañas.
+    var sel by rememberSaveable { mutableStateOf(iso.format(java.util.Date())) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp)) {
         Cabecera("Estadísticas", "‹", onAtras = onAtras)
-        Calendario()
+        Calendario(sel) { sel = it }
         Spacer(Modifier.height(12.dp))
         // Gym, Pádel o Bici: cada uno con sus números y gráficas.
         var vista by rememberSaveable { mutableStateOf("total") }
@@ -76,9 +78,10 @@ fun StatsPantalla(v: Int, onAtras: () -> Unit) {
                 }
             }
         }
-        if (vista == "total") StatsTotal()
-        if (vista == "padel") StatsPadel()
-        if (vista == "bici") StatsBici()
+        if (vista == "total") StatsTotal(sel) { sel = it }
+        if (vista == "padel") StatsPadel(sel)
+        if (vista == "bici") StatsBici(sel)
+        if (vista == "gym") StatsGymDia(sel)
         if (vista == "gym") Caja {
             Text("PROGRESIÓN", color = Tinta, fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -104,10 +107,11 @@ fun StatsPantalla(v: Int, onAtras: () -> Unit) {
 }
 
 @Composable
-private fun Calendario() {
+private fun Calendario(sel: String, onSel: (String) -> Unit) {
     val hoy = Calendar.getInstance()
-    var anio by rememberSaveable { mutableIntStateOf(hoy.get(Calendar.YEAR)) }
-    var mes by rememberSaveable { mutableIntStateOf(hoy.get(Calendar.MONTH)) }
+    // El mes que se ve sigue al día elegido; las flechas solo pasan de mes.
+    var anio by rememberSaveable(sel) { mutableIntStateOf(sel.take(4).toIntOrNull() ?: hoy.get(Calendar.YEAR)) }
+    var mes by rememberSaveable(sel) { mutableIntStateOf((sel.substring(5, 7).toIntOrNull() ?: (hoy.get(Calendar.MONTH) + 1)) - 1) }
     var quitar by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     // Qué se hizo cada día: entrenos del gym, pádel y bici.
@@ -144,11 +148,19 @@ private fun Calendario() {
                     val m = marcas[f]
                     m?.forEach { cuenta[it] = (cuenta[it] ?: 0) + 1 }
                     val fondo = m?.firstOrNull()?.let { color(it) }
+                    val gymDia = m?.firstOrNull { it in Rutina.dias.map { r -> r.id } }
+                    val elegido = f == sel
                     Box(
-                        Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(6.dp)).background(fondo ?: Fondo)
+                        Modifier.weight(1f).height(40.dp)
+                            .border(if (elegido) 3.dp else 0.dp, if (elegido) Naranja else Color.Transparent, RoundedCornerShape(8.dp))
+                            .padding(if (elegido) 4.dp else 0.dp)
+                            .clip(RoundedCornerShape(6.dp)).background(fondo ?: Fondo)
                             .border(if (f == hoyIso) 2.dp else 0.dp, if (f == hoyIso) Tinta else Color.Transparent, RoundedCornerShape(6.dp))
-                            .clickable(enabled = m?.any { it in Rutina.dias.map { r -> r.id } } == true) {
-                                quitar = m!!.first { it in Rutina.dias.map { r -> r.id } } to f
+                            .pointerInput(f, gymDia) {
+                                detectTapGestures(
+                                    onTap = { onSel(f) },
+                                    onLongPress = { if (gymDia != null) quitar = gymDia to f },
+                                )
                             },
                         contentAlignment = Alignment.Center,
                     ) {
@@ -167,7 +179,8 @@ private fun Calendario() {
                 }
             }
         }
-        Text("Toca un día marcado del gym para quitarlo si fue de prueba.", color = Gris, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+        Text("Toca un día para ver sus datos en todas las pestañas. Mantén pulsado un día del gym para quitarlo si fue de prueba.",
+            color = Gris, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
     }
     quitar?.let { (dia, f) ->
         AlertDialog(
@@ -275,11 +288,11 @@ private fun FilaCifras(vararg c: Triple<String, String, Color>) {
 
 private fun horas(seg: Long) = if (seg >= 3600) "${seg / 3600}h ${"%02d".format((seg % 3600) / 60)}" else "${seg / 60} min"
 
-/** Este mes y desde siempre, con el mismo formato. */
+/** El mes del día elegido y desde siempre, con el mismo formato. */
 @Composable
-private fun <T> Periodos(todos: List<T>, fecha: (T) -> String, contenido: @Composable (List<T>) -> Unit) {
-    val mes = SimpleDateFormat("yyyy-MM", Locale.US).format(java.util.Date())
-    Text("ESTE MES", color = Gris, fontSize = 14.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+private fun <T> Periodos(sel: String, todos: List<T>, fecha: (T) -> String, contenido: @Composable (List<T>) -> Unit) {
+    val mes = sel.take(7)
+    Text("MES DE ${MESES[(sel.substring(5, 7).toIntOrNull() ?: 1) - 1].uppercase()}", color = Gris, fontSize = 14.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
     contenido(todos.filter { fecha(it).startsWith(mes) })
     HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Linea)
     Text("DESDE SIEMPRE", color = Gris, fontSize = 14.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
@@ -287,12 +300,13 @@ private fun <T> Periodos(todos: List<T>, fecha: (T) -> String, contenido: @Compo
 }
 
 @Composable
-private fun StatsPadel() {
+private fun StatsPadel(sel: String) {
     val ps = com.bandeja.shared.Partidos.todos().sortedBy { it.inicio }
     Caja {
         Text("PÁDEL", color = Tinta, fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
         if (ps.isEmpty()) { Text("Todavía no hay partidos.", color = Gris, fontSize = 14.sp); return@Caja }
-        Periodos(ps, { com.bandeja.shared.Fechas.dia(it.inicio) }) { l ->
+        DiaElegido(sel, "padel")
+        Periodos(sel, ps, { com.bandeja.shared.Fechas.dia(it.inicio) }) { l ->
             val gan = l.count { it.ganador == "azul" }
             val per = l.count { it.ganador == "verde" }
             FilaCifras(
@@ -327,7 +341,7 @@ private fun StatsPadel() {
 private data class SesionBici(val fecha: String, val dur: Long, val kcal: Int, val pm: Int?, val pmax: Int?, val subida: Double?, val rec: Double?)
 
 @Composable
-private fun StatsBici() {
+private fun StatsBici(sel: String) {
     val ss = Docs.keys("bici-").sorted().mapNotNull { k ->
         val d = Docs.get(k) ?: return@mapNotNull null
         val c = d.optJSONArray("cambios")
@@ -340,7 +354,8 @@ private fun StatsBici() {
     Caja {
         Text("BICI", color = Tinta, fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
         if (ss.isEmpty()) { Text("Todavía no hay sesiones de bici.", color = Gris, fontSize = 14.sp); return@Caja }
-        Periodos(ss, { it.fecha }) { l ->
+        DiaElegido(sel, "bici")
+        Periodos(sel, ss, { it.fecha }) { l ->
             FilaCifras(
                 Triple("${l.size}", "sesiones", Tinta),
                 Triple(horas(l.sumOf { it.dur }), "pedaleadas", Tinta),
@@ -407,21 +422,27 @@ private fun actividades(): List<Actividad> {
 private val TIPOS = listOf(Triple("gym", "Gym", Azul), Triple("padel", "Pádel", Verde), Triple("bici", "Bici", Rosa))
 
 @Composable
-private fun StatsTotal() {
+private fun StatsTotal(sel: String, onSel: (String) -> Unit) {
     var periodo by rememberSaveable { mutableStateOf("semana") }
-    var atras by rememberSaveable { mutableIntStateOf(0) } // 0 = el actual, 1 = el anterior…
     val f = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    // Días que entran en el periodo elegido.
-    val dias: List<String> = remember(periodo, atras) {
-        val c = Calendar.getInstance().apply { firstDayOfWeek = Calendar.MONDAY }
+    fun cal() = Calendar.getInstance().apply { firstDayOfWeek = Calendar.MONDAY; time = runCatching { f.parse(sel)!! }.getOrDefault(java.util.Date()) }
+    // ‹ › mueven el día elegido un día, una semana o un mes (y el calendario lo sigue).
+    fun mover(n: Int) {
+        val c = cal()
+        c.add(when (periodo) { "dia" -> Calendar.DAY_OF_YEAR; "semana" -> Calendar.WEEK_OF_YEAR; else -> Calendar.MONTH }, n)
+        onSel(f.format(c.time))
+    }
+    // Días que entran en el periodo del día elegido.
+    val dias: List<String> = remember(periodo, sel) {
+        val c = cal()
         when (periodo) {
-            "dia" -> { c.add(Calendar.DAY_OF_YEAR, -atras); listOf(f.format(c.time)) }
+            "dia" -> listOf(sel)
             "semana" -> {
-                c.add(Calendar.WEEK_OF_YEAR, -atras); c.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                c.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
                 (0 until 7).map { i -> f.format(c.time).also { c.add(Calendar.DAY_OF_YEAR, 1) } }
             }
             else -> {
-                c.add(Calendar.MONTH, -atras); c.set(Calendar.DAY_OF_MONTH, 1)
+                c.set(Calendar.DAY_OF_MONTH, 1)
                 val n = c.getActualMaximum(Calendar.DAY_OF_MONTH)
                 (0 until n).map { f.format(c.time).also { c.add(Calendar.DAY_OF_YEAR, 1) } }
             }
@@ -430,8 +451,8 @@ private fun StatsTotal() {
     val todas = actividades()
     val l = todas.filter { it.fecha in dias }
     val titulo = when (periodo) {
-        "dia" -> if (atras == 0) "Hoy" else if (atras == 1) "Ayer" else runCatching { corta.format(f.parse(dias[0])!!) }.getOrDefault(dias[0])
-        "semana" -> if (atras == 0) "Esta semana" else "Semana del ${ddmm(dias.first())}"
+        "dia" -> runCatching { corta.format(f.parse(sel)!!) }.getOrDefault(sel)
+        "semana" -> "Semana del ${ddmm(dias.first())} al ${ddmm(dias.last())}"
         else -> runCatching { SimpleDateFormat("MMMM yyyy", Locale("es", "ES")).format(f.parse(dias[0])!!).replaceFirstChar { it.uppercase() } }.getOrDefault(dias[0])
     }
     Caja {
@@ -440,17 +461,17 @@ private fun StatsTotal() {
             listOf("dia" to "DÍA", "semana" to "SEMANA", "mes" to "MES").forEach { (id, t) ->
                 val sel = periodo == id
                 Box(Modifier.weight(1f).height(38.dp).clip(RoundedCornerShape(8.dp)).background(if (sel) Tinta else Tarjeta)
-                    .border(1.dp, if (sel) Tinta else Linea, RoundedCornerShape(8.dp)).clickable { periodo = id; atras = 0 },
+                    .border(1.dp, if (sel) Tinta else Linea, RoundedCornerShape(8.dp)).clickable { periodo = id },
                     contentAlignment = Alignment.Center) {
                     Text(t, color = if (sel) Color.White else Tinta, fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
                 }
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            BotonRedondo("‹", 40.dp) { atras++ }
+            BotonRedondo("‹", 40.dp) { mover(-1) }
             Text(titulo.uppercase(), color = Tinta, fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            BotonRedondo("›", 40.dp) { if (atras > 0) atras-- }
+            BotonRedondo("›", 40.dp) { mover(1) }
         }
         val kcal = l.sumOf { it.kcal }
         val dur = l.sumOf { it.dur }
@@ -497,7 +518,8 @@ private fun StatsTotal() {
                     partes.forEachIndexed { k, v ->
                         if (v <= 0) return@forEachIndexed
                         val h = size.height * v / maxDia
-                        drawRect(TIPOS[k].third, Offset(i * w + w * 0.15f, y - h), androidx.compose.ui.geometry.Size(w * 0.7f, h))
+                        drawRect(TIPOS[k].third, Offset(i * w + w * 0.15f, y - h), androidx.compose.ui.geometry.Size(w * 0.7f, h),
+                            alpha = if (dias[i] == sel) 1f else 0.55f)
                         y -= h
                     }
                 }
@@ -519,4 +541,46 @@ private fun StatsTotal() {
 private fun colorPulso(b: Int?): Color = when (com.bandeja.shared.Zonas.zona(b ?: 0)) {
     1 -> Color(0xFF9AA5A2); 2 -> Color(0xFF1FA2D8); 3 -> Color(0xFF7CAF3A); 4 -> Color(0xFFE8A800); 5 -> Color(0xFFD81B60)
     else -> Tinta
+}
+
+/** Lo que se hizo el día elegido en el calendario, de un tipo (gym, padel o bici). */
+@Composable
+private fun DiaElegido(sel: String, tipo: String) {
+    val f = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    val titulo = runCatching { corta.format(f.parse(sel)!!) }.getOrDefault(sel)
+    val l = actividades().filter { it.tipo == tipo && it.fecha == sel }
+    Text(titulo.uppercase(), color = Naranja, fontSize = 14.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+    if (l.isEmpty()) Text("Nada este día.", color = Gris, fontSize = 15.sp)
+    else {
+        val conPm = l.filter { it.pm != null && it.dur > 0 }
+        val pm = if (conPm.isEmpty()) null else (conPm.sumOf { it.pm!!.toLong() * it.dur } / conPm.sumOf { it.dur }).toInt()
+        val pmax = l.mapNotNull { it.pmax }.maxOrNull()
+        FilaCifras(
+            Triple((if (l.any { it.est }) "≈" else "") + "${l.sumOf { it.kcal }}", "kcal", Naranja),
+            Triple(horas(l.sumOf { it.dur }), if (l.size > 1) "en ${l.size}" else "de ejercicio", Tinta),
+            Triple(pm?.toString() ?: "—", "pulso medio", colorPulso(pm)),
+        )
+        if (pmax != null) Text("Pulso máximo: $pmax", color = colorPulso(pmax), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    }
+    HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Linea)
+}
+
+/** Pestaña GYM: qué rutina se hizo el día elegido, con sus números. */
+@Composable
+private fun StatsGymDia(sel: String) {
+    Caja {
+        Text("GYM", color = Tinta, fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+        val hechas = Gym.sesiones().filter { (_, fechas) -> sel in fechas }.map { it.key }
+        if (hechas.isNotEmpty()) Text(hechas.joinToString(" + ") { Rutina.dia(it)?.tag ?: it }, color = colorDia(hechas.first()),
+            fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
+        DiaElegido(sel, "gym")
+        Periodos(sel, actividades().filter { it.tipo == "gym" }, { it.fecha }) { l ->
+            FilaCifras(
+                Triple("${l.size}", "sesiones", Tinta),
+                Triple(horas(l.sumOf { it.dur }), "entrenadas", Tinta),
+                Triple("${l.sumOf { it.kcal }}", "kcal", Naranja),
+            )
+        }
+    }
+    Spacer(Modifier.height(10.dp))
 }
