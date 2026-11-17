@@ -161,7 +161,11 @@ private fun FilaPartido(p: Partidos.Resumen, onAbrir: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(Fechas.hora(p.inicio), color = Gris, fontSize = 14.sp)
                 Spacer(Modifier.width(8.dp))
-                Etiqueta(if (p.unSet) "1 SET" else "3 SETS", if (p.unSet) Oro else Azul)
+                when (p.clase) {
+                    "clase" -> Etiqueta("CLASE", Naranja)
+                    "entreno" -> Etiqueta("ENTRENO", Gris)
+                    else -> Etiqueta(if (p.unSet) "1 SET" else "3 SETS", if (p.unSet) Oro else Azul)
+                }
                 if (!p.terminado) { Spacer(Modifier.width(6.dp)); Etiqueta("sin terminar", Gris) }
                 Spacer(Modifier.weight(1f))
                 val res = when (p.ganador) { "azul" -> "Ganado"; "verde" -> "Perdido"; else -> "" }
@@ -216,6 +220,7 @@ private fun EditarPartido(key: String, onCerrar: () -> Unit) {
     val sets = remember(key) { mutableStateListOf<Pair<Int, Int>>().apply { addAll(p.sets.map { it.first to it.second }) } }
     var nota by rememberSaveable(key) { mutableStateOf(p.nota) }
     var unSet by rememberSaveable(key) { mutableStateOf(p.unSet) }
+    var clase by rememberSaveable(key) { mutableStateOf(p.clase) }
     var fecha by remember(key) { mutableLongStateOf(p.inicio) }
     var borrar by remember { mutableStateOf(false) }
 
@@ -257,12 +262,21 @@ private fun EditarPartido(key: String, onCerrar: () -> Unit) {
         Caja {
             Text("Tipo de partido", color = Gris, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                Pildora("1 set", if (unSet) Oro else Tarjeta2, txt = if (unSet) Color.White else Tinta) { unSet = true }
-                Pildora("Al mejor de 3", if (!unSet) Azul else Tarjeta2) { unSet = false }
+                listOf(Triple("entreno", "Entreno", Gris), Triple("clase", "Clase", Naranja), Triple("partido", "Partido", Verde)).forEach { (id, t, c) ->
+                    Pildora(t, if (clase == id) c else Tarjeta2, Modifier.weight(1f), txt = if (clase == id) Color.White else Tinta) { clase = id }
+                }
+            }
+            // Formato y resultado: solo para partidos y entrenos (una clase no lleva marcador).
+            if (clase != "clase") {
+                Text("Formato", color = Gris, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    Pildora("1 set", if (unSet) Oro else Tarjeta2, txt = if (unSet) Color.White else Tinta) { unSet = true }
+                    Pildora("Al mejor de 3", if (!unSet) Azul else Tarjeta2) { unSet = false }
+                }
             }
         }
         Spacer(Modifier.height(10.dp))
-        Caja {
+        if (clase != "clase") Caja {
             Text("Sets (nosotros - rivales)", color = Gris, fontSize = 13.sp)
             sets.forEachIndexed { i, (a, b) ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -281,9 +295,10 @@ private fun EditarPartido(key: String, onCerrar: () -> Unit) {
         OutlinedTextField(value = nota, onValueChange = { nota = it }, label = { Text("Nota") }, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(16.dp))
         Pildora("Guardar", Verde, Modifier.fillMaxWidth()) {
-            if (nuevo) Partidos.crear(fecha, sets.toList(), nota, unSet, minutos * 60L)
-            else Partidos.editar(key, sets.toList(), nota, unSet, if (fecha != p.inicio) fecha else null,
-                if (minutos * 60L != p.dur / 60 * 60) minutos * 60L else null)
+            val marc = if (clase == "clase") emptyList() else sets.toList()
+            if (nuevo) Partidos.crear(fecha, marc, nota, unSet, minutos * 60L, clase)
+            else Partidos.editar(key, marc, nota, unSet, if (fecha != p.inicio) fecha else null,
+                if (minutos * 60L != p.dur / 60 * 60) minutos * 60L else null, clase)
             onCerrar()
         }
         Spacer(Modifier.height(10.dp))

@@ -63,6 +63,8 @@ object Partidos {
         val kcal: Int?,
         val unSet: Boolean,
         val nota: String,
+        /** "partido", "entreno" o "clase". */
+        val clase: String = "partido",
     )
 
     fun leer(key: String): Resumen? {
@@ -75,7 +77,8 @@ object Partidos {
         return Resumen(key, inicio, sets, d.optString("ganador").takeIf { it == "azul" || it == "verde" },
             d.optBoolean("terminado", true), d.optLong("dur"),
             if (d.isNull("pm")) null else d.optInt("pm"), if (d.isNull("kcal")) null else d.optInt("kcal"),
-            d.optBoolean("unSet", sets.size == 1 && d.optBoolean("terminado", true)), d.optString("nota"))
+            d.optBoolean("unSet", sets.size == 1 && d.optBoolean("terminado", true)), d.optString("nota"),
+            d.optString("clase").ifEmpty { "partido" })
     }
 
     fun inicioDeClave(key: String): Long = runCatching {
@@ -110,7 +113,7 @@ object Partidos {
     fun kcalEstimadas(durSeg: Long): Int = Math.round(kcalPorMinuto() * durSeg / 60.0).toInt()
 
     /** Partido apuntado a mano en el móvil (no se grabó con el reloj). */
-    fun crear(inicio: Long, sets: List<Pair<Int, Int>>, nota: String, unSet: Boolean, durSeg: Long) {
+    fun crear(inicio: Long, sets: List<Pair<Int, Int>>, nota: String, unSet: Boolean, durSeg: Long, clase: String = "partido") {
         var t = inicio
         while (Docs.get(clave(t)) != null) t += 60_000 // no pisar otro partido a la misma hora
         val k = clave(t)
@@ -123,11 +126,11 @@ object Partidos {
             put("hr", JSONArray()); put("reglas", JSONObject.NULL); put("src", "manual")
             put("sets", JSONArray())
         })
-        editar(k, sets, nota, unSet, null, durSeg)
+        editar(k, sets, nota, unSet, null, durSeg, clase)
     }
 
     /** Guarda los cambios hechos a mano en el móvil. */
-    fun editar(key: String, sets: List<Pair<Int, Int>>, nota: String, unSet: Boolean, nuevaFecha: Long?, durSeg: Long? = null) {
+    fun editar(key: String, sets: List<Pair<Int, Int>>, nota: String, unSet: Boolean, nuevaFecha: Long?, durSeg: Long? = null, clase: String? = null) {
         val d = Docs.get(key) ?: return
         if (durSeg != null) {
             d.put("dur", durSeg)
@@ -145,6 +148,7 @@ object Partidos {
         d.put("ganador", if (ga > gb) "azul" else if (gb > ga) "verde" else JSONObject.NULL)
         d.put("nota", nota)
         d.put("unSet", unSet)
+        if (clase != null) d.put("clase", clase)
         if (nuevaFecha != null && clave(nuevaFecha) != key) {
             d.put("inicio", Fechas.iso(nuevaFecha))
             d.put("fecha", Fechas.dia(nuevaFecha))
