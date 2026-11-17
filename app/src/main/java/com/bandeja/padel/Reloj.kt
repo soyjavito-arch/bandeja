@@ -603,7 +603,7 @@ private fun Ajuste(titulo: String, valor: String, onMenos: () -> Unit, onMas: ()
 
 /** Colores de las zonas (iguales que en el móvil, algo más claros para fondo negro). */
 private fun colorZonaReloj(z: Int) = when (z) {
-    1 -> Color(0xFFB8C2BF); 2 -> Color(0xFF5DA3F0); 3 -> Color(0xFF4CC27E); 4 -> Color(0xFFF2B53A); 5 -> Color(0xFFFF5A5A)
+    1 -> Color(0xFFC3CCC9); 2 -> Color(0xFF4FC3F7); 3 -> Color(0xFF9CCC65); 4 -> Color(0xFFFFCA28); 5 -> Color(0xFFF06292)
     else -> Color(0xFF8A9592)
 }
 

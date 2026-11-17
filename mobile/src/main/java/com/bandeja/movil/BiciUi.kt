@@ -45,9 +45,9 @@ import com.bandeja.shared.Sync
 import com.bandeja.shared.Zonas
 import org.json.JSONObject
 
-/** Colores de las zonas: 1 gris, 2 azul, 3 verde, 4 amarillo, 5 rojo. */
+/** Colores de las zonas, como en Polar: 1 gris, 2 azul, 3 verde, 4 amarillo, 5 rosa. */
 private fun colorZona(z: Int) = when (z) {
-    1 -> Color(0xFF8E9A97); 2 -> Color(0xFF2F7FD8); 3 -> Color(0xFF2E9E5B); 4 -> Color(0xFFE0A100); 5 -> Color(0xFFD63B3B)
+    1 -> Color(0xFF9AA5A2); 2 -> Color(0xFF1FA2D8); 3 -> Color(0xFF7CAF3A); 4 -> Color(0xFFE8A800); 5 -> Color(0xFFD81B60)
     else -> Color(0xFFB5BEBB)
 }
 

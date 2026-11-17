@@ -118,40 +118,33 @@ object Fechas {
     fun hora(ms: Long): String = hora.format(Date(ms))
 }
 
-/** Calorías con Keytel (hombre), igual que el marcador de pádel. */
+/** Calorías con Keytel (hombre) usando su VO2máx de Polar (49). */
 object Kcal {
     const val PESO = 83.65
     const val NACIDO = 1979
+    const val VO2MAX = 49.0
 
     fun porMinuto(bpm: Int, pesoKg: Double = PESO, edad: Int = edad()): Double =
-        ((-55.0969 + 0.6309 * bpm + 0.1988 * pesoKg + 0.2017 * edad) / 4.184).coerceAtLeast(0.0)
+        ((-95.7735 + 0.634 * bpm + 0.404 * VO2MAX + 0.394 * pesoKg + 0.271 * edad) / 4.184).coerceAtLeast(0.0)
 
     fun edad(): Int = Calendar.getInstance().get(Calendar.YEAR) - NACIDO
 }
 
-/** Zonas de pulso con la máxima teórica (220 - edad). */
+/** Zonas de pulso de Javi, las mismas que le da Polar (máx. 175). */
 object Zonas {
-    fun max(): Int = 220 - Kcal.edad()
+    /** Pulso donde empieza cada zona: Z1 88, Z2 105, Z3 122, Z4 140, Z5 158; 6 = máximo (175). */
+    private val LIMITES = intArrayOf(88, 105, 122, 140, 158, 175)
 
-    /** 1..5 (0 si muy bajo). */
+    fun max(): Int = LIMITES[5]
+
+    /** 1..5 (0 si está por debajo de la zona 1). */
     fun zona(bpm: Int): Int {
-        if (bpm <= 0) return 0
-        val p = bpm * 100 / max()
-        return when {
-            p < 50 -> 0
-            p < 60 -> 1
-            p < 70 -> 2
-            p < 80 -> 3
-            p < 90 -> 4
-            else -> 5
-        }
+        if (bpm < LIMITES[0]) return 0
+        for (z in 5 downTo 1) if (bpm >= LIMITES[z - 1]) return z
+        return 0
     }
 
-    /** Pulso donde empieza cada zona (1..5) y donde acaba la 5 (6). */
-    fun desde(z: Int): Int = when (z) {
-        1 -> max() * 50 / 100; 2 -> max() * 60 / 100; 3 -> max() * 70 / 100
-        4 -> max() * 80 / 100; 5 -> max() * 90 / 100; else -> max()
-    }
+    fun desde(z: Int): Int = LIMITES[(z - 1).coerceIn(0, 5)]
 
     fun nombre(z: Int): String = when (z) {
         1 -> "Zona 1 · suave"
