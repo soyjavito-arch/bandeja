@@ -681,10 +681,16 @@ private fun BiciEnMarcha(v: JSONObject?, onPausa: () -> Unit, onParar: () -> Uni
             } else if (gps) {
                 Text("%.1f km · %.0f km/h".format(v?.optDouble("km") ?: 0.0, v?.optDouble("kmh") ?: 0.0), fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Claro)
             } else {
-                Text("MEDIA ${v?.optInt("media") ?: 0} · MÁX ${v?.optInt("max") ?: 0}", fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Claro)
+                // Sin cambios de ritmo: el tiempo y las calorías ocupan ese hueco, en grande.
+                Text(Fechas.hms(v?.optLong("seg") ?: 0), fontSize = 40.sp, lineHeight = 42.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Color.White)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🔥${v?.optInt("kcal") ?: 0}", fontSize = 32.sp, lineHeight = 34.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = NaranjaTxt)
+                    if (v?.optBoolean("pausa") == true) Text("  PAUSA", fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = NaranjaTxt)
+                }
             }
         }
-        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        val grandes = !controles && !(ritmo != null && ritmo.optBoolean("activo", true)) && !(v != null && !v.isNull("km") && v.has("km"))
+        if (!grandes) Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(Fechas.hms(v?.optLong("seg") ?: 0), fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Color.White)
             Text("🔥${v?.optInt("kcal") ?: 0}", fontSize = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = NaranjaTxt)
             if (v?.optBoolean("pausa") == true) Text("PAUSA", fontSize = 18.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = NaranjaTxt)
