@@ -346,20 +346,21 @@ private fun Serie(
 ) {
     val vals = Gym.valores(dia.id, ej)
     val serie = Gym.primeraPendiente(dia, ej)
+    // Todo va en una columna (también tiempo, pulso y kcal) para que nada se monte en la esfera redonda.
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().padding(top = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.fillMaxSize().padding(top = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             // Botón para volver a la lista del entreno (también vale el botón atrás del reloj).
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.clip(RoundedCornerShape(14.dp)).background(colorDia(dia.id)).clickable(onClick = onLista)
-                    .padding(horizontal = 10.dp, vertical = 2.dp)) {
-                    Text("☰ Lista", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Row(Modifier.height(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.clip(RoundedCornerShape(12.dp)).background(colorDia(dia.id)).clickable(onClick = onLista)
+                    .padding(horizontal = 9.dp, vertical = 1.dp)) {
+                    Text("☰ Lista", fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
-                Hora(now)
+                Text(Fechas.hora(now), fontSize = 17.sp, lineHeight = 18.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Color.White)
             }
-            Row(Modifier.padding(horizontal = 30.dp).clickable(onClick = onLista), verticalAlignment = Alignment.CenterVertically) {
-                GifView(ej.clave, Modifier.size(36.dp).clip(RoundedCornerShape(7.dp)))
-                Spacer(Modifier.width(6.dp))
-                Text(ej.nombre, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(Modifier.height(26.dp).padding(horizontal = 34.dp).clickable(onClick = onLista), verticalAlignment = Alignment.CenterVertically) {
+                GifView(ej.clave, Modifier.size(24.dp).clip(RoundedCornerShape(5.dp)))
+                Spacer(Modifier.width(5.dp))
+                Text(ej.nombre, fontSize = 14.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             when {
                 ej.numSeries == 0 -> {
@@ -369,17 +370,17 @@ private fun Serie(
                     Pastilla("Siguiente", Verde, onSiguiente)
                 }
                 ej.porTiempo -> {
-                    Text("SERIE ${serie + 1} DE ${ej.numSeries}", fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id))
+                    Text("SERIE ${serie + 1} DE ${ej.numSeries}", fontSize = 18.sp, lineHeight = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id))
                     if (trabajo != null) {
-                        Text(Fechas.mmss((trabajo.restanteMs(now) + 999) / 1000), fontSize = 40.sp, fontWeight = FontWeight.Bold, color = NaranjaTxt)
+                        Text(Fechas.mmss((trabajo.restanteMs(now) + 999) / 1000), fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, color = NaranjaTxt)
                         Pastilla("Hecha ya", Verde, onSaltarTrabajo)
                     } else {
-                        Text(Fechas.mmss(ej.trabajoSeg.toLong()), fontSize = 40.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        Pastilla("Empezar", Verde, { onTrabajo(serie) })
+                        Text(Fechas.mmss(ej.trabajoSeg.toLong()), fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Pastilla("Empezar", Color.White, { onTrabajo(serie) }, txt = Color.Black)
                     }
                 }
                 else -> {
-                    Text("SERIE ${serie + 1} DE ${ej.numSeries}", fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id))
+                    Text("SERIE ${serie + 1} DE ${ej.numSeries}", fontSize = 18.sp, lineHeight = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id))
                     val (r, w) = vals.getOrElse(serie) { null to null }
                     Fila(r?.toString() ?: "—", "reps", Color.White,
                         onMenos = { Gym.cambiar(dia.id, ej, serie, ((r ?: 1) - 1).coerceAtLeast(1), w) },
@@ -387,28 +388,52 @@ private fun Serie(
                     Fila(Kilos.texto(w), "kg", Color.White,
                         onMenos = { Gym.cambiar(dia.id, ej, serie, r, Kilos.bajar(w)) },
                         onMas = { Gym.cambiar(dia.id, ej, serie, r, Kilos.subir(w)) })
-                    Spacer(Modifier.height(3.dp))
-                    Pastilla("✓ Terminada", Verde, { onHecha(serie) })
+                    Spacer(Modifier.height(2.dp))
+                    BotonTerminada(serie, onHecha)
                 }
             }
+            Spacer(Modifier.height(3.dp))
+            DatosPeq(tiempo, hr, kcal)
         }
         Text("‹", fontSize = 26.sp, color = Claro, fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.CenterStart).padding(start = 6.dp).clickable(onClick = onAnterior).padding(6.dp))
+            modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp).clickable(onClick = onAnterior).padding(6.dp))
         Text("›", fontSize = 26.sp, color = Claro, fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 6.dp).clickable(onClick = onSiguiente).padding(6.dp))
-        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)) { Datos(tiempo, hr, kcal) }
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp).clickable(onClick = onSiguiente).padding(6.dp))
+    }
+}
+
+/** Blanco mientras la serie está pendiente; al pulsarlo se pone verde un momento y salta al descanso. */
+@Composable
+private fun BotonTerminada(serie: Int, onHecha: (Int) -> Unit) {
+    var pulsado by remember(serie) { mutableStateOf(false) }
+    LaunchedEffect(pulsado) {
+        if (pulsado) { delay(350); onHecha(serie) }
+    }
+    Box(Modifier.height(28.dp).clip(RoundedCornerShape(14.dp)).background(if (pulsado) Verde else Color.White)
+        .clickable(enabled = !pulsado) { pulsado = true }.padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
+        Text("✓ Terminada", fontSize = 14.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, color = if (pulsado) Color.White else Color.Black)
+    }
+}
+
+/** Tiempo, pulso y calorías dentro del flujo de la pantalla (versión compacta). */
+@Composable
+private fun DatosPeq(tiempo: String, hr: Int, kcal: Int?) {
+    Row(Modifier.height(18.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(tiempo, fontSize = 15.sp, lineHeight = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Color.White)
+        Text("♥" + (if (hr > 0) hr else "--"), fontSize = 15.sp, lineHeight = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Rojo)
+        if (kcal != null) Text("🔥$kcal", fontSize = 15.sp, lineHeight = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = NaranjaTxt)
     }
 }
 
 @Composable
 private fun Fila(valor: String, unidad: String, color: Color, onMenos: () -> Unit, onMas: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Redondo("−", onMenos, 28)
-        Row(Modifier.width(72.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
-            Text(valor, fontSize = 32.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = color)
+    Row(Modifier.height(32.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Redondo("−", onMenos, 26)
+        Row(Modifier.width(70.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
+            Text(valor, fontSize = 28.sp, lineHeight = 30.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = color)
             Text(" $unidad", fontSize = 10.sp, color = Gris, modifier = Modifier.padding(bottom = 4.dp))
         }
-        Redondo("+", onMas, 28)
+        Redondo("+", onMas, 26)
     }
 }
 
