@@ -205,7 +205,6 @@ private fun CajaRitmo(r: JSONObject?) {
             Fila("Número de cambios", "${aj.n}", { set(aj.copy(n = (aj.n - 1).coerceAtLeast(1))) }, { set(aj.copy(n = (aj.n + 1).coerceAtMost(30))) })
             Fila("«Start» al bajar a", "${aj.lo}", { set(aj.copy(lo = (aj.lo - 1).coerceAtLeast(60))) }, { set(aj.copy(lo = (aj.lo + 1).coerceAtMost(aj.hi - 5))) })
             Fila("«Break» al llegar a", "${aj.hi}", { set(aj.copy(hi = (aj.hi - 1).coerceAtLeast(aj.lo + 5))) }, { set(aj.copy(hi = (aj.hi + 1).coerceAtMost(210))) })
-            Text("El último dice «Finish». 🔊 Lo dice el móvil; el reloj solo vibra.", color = Gris, fontSize = 12.sp)
             val hechos = r?.optJSONArray("hechos")
             for (i in 0 until (hechos?.length() ?: 0)) {
                 val h = hechos!!.optJSONArray(i) ?: continue
