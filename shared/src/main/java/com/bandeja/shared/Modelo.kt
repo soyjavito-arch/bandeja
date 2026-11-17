@@ -132,8 +132,8 @@ object Kcal {
 
 /** Zonas de pulso de Javi, las mismas que le da Polar (máx. 175). */
 object Zonas {
-    /** Pulso donde empieza cada zona: Z1 88, Z2 105, Z3 122, Z4 140, Z5 158; 6 = máximo (175). */
-    private val LIMITES = intArrayOf(88, 105, 122, 140, 158, 175)
+    /** Pulso donde empieza cada zona (datos de Javi del 17/11/2026): Z1 112, Z2 125, Z3 138, Z4 150, Z5 162; 6 = máximo (175). */
+    private val LIMITES = intArrayOf(112, 125, 138, 150, 162, 175)
 
     fun max(): Int = LIMITES[5]
 
@@ -147,11 +147,11 @@ object Zonas {
     fun desde(z: Int): Int = LIMITES[(z - 1).coerceIn(0, 5)]
 
     fun nombre(z: Int): String = when (z) {
-        1 -> "Zona 1 · suave"
-        2 -> "Zona 2 · fondo"
-        3 -> "Zona 3 · aeróbico"
+        1 -> "Zona 1 · recuperación"
+        2 -> "Zona 2 · base aeróbica"
+        3 -> "Zona 3 · tempo"
         4 -> "Zona 4 · umbral"
-        5 -> "Zona 5 · máximo"
+        5 -> "Zona 5 · VO2 máx"
         else -> "Reposo"
     }
 }
