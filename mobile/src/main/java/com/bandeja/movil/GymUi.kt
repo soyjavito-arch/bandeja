@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -144,12 +146,16 @@ private fun SesionCaja(ses: Gym.Sesion, now: Long, grande: Boolean, ejKey: Strin
     Caja(Modifier.padding(vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(10.dp).clip(CircleShape).background(if (ses.fin > 0) Verde else Rojo))
-                    Text(if (ses.fin > 0) "  Sesión terminada" else "  Sesión en marcha", color = Gris, fontSize = 13.sp)
+                // Tocar el tiempo: pausa / sigue.
+                Column(Modifier.clickable(enabled = ses.fin == 0L) { Gym.pausarSesion() }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(10.dp).clip(CircleShape).background(if (ses.fin > 0) Verde else if (ses.pausada) Naranja else Rojo))
+                        Text(if (ses.fin > 0) "  Sesión terminada" else if (ses.pausada) "  Sesión en pausa · toca para seguir" else "  Sesión en marcha",
+                            color = if (ses.pausada) Naranja else Gris, fontSize = 13.sp)
+                    }
+                    Text(Fechas.hms(ses.duracionMs(now) / 1000), color = if (ses.pausada) Naranja else Tinta,
+                        fontSize = if (grande) 50.sp else 36.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
                 }
-                Text(Fechas.hms(ses.duracionMs(now) / 1000), color = Tinta, fontSize = if (grande) 50.sp else 36.sp,
-                    fontFamily = Barlow, fontWeight = FontWeight.Bold)
                 if (grande) Pulso.leer()?.let { (hr, kcal) ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("♥ $hr", color = Rojo, fontSize = 24.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
@@ -175,20 +181,18 @@ private fun SesionCaja(ses: Gym.Sesion, now: Long, grande: Boolean, ejKey: Strin
                 val parado = ejKey != null && (ses.tiempos[ejKey]?.second ?: 0L) > 0
                 val completo = ejKey != null && ej != null && ej.numSeries > 0 && ses.hechas(ejKey).size >= ej.numSeries
                 val color = if (completo && parado) Verde else if (parado) Naranja else Tinta
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                // Un toque: para / arranca. Dos toques: vuelve a cero y arranca.
+                val manejable = dia != null && ej != null && ej.numSeries > 0
+                Column(Modifier.weight(1f).then(if (manejable) Modifier.pointerInput(ejKey) {
+                    detectTapGestures(
+                        onTap = { Gym.cronoEjercicio(dia!!, ej!!, "tocar") },
+                        onDoubleTap = { Gym.cronoEjercicio(dia!!, ej!!, "iniciar") },
+                    )
+                } else Modifier), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(if (completo && parado) "Ejercicio ✓" else if (parado) "Ejercicio · parado" else "Ejercicio", color = if (parado) color else Gris, fontSize = 13.sp)
                     Text(ms?.let { Fechas.mmss(it / 1000) } ?: "--:--", color = color, fontSize = 36.sp,
                         fontFamily = Barlow, fontWeight = FontWeight.Bold)
-                    if (dia != null && ej != null && ej.numSeries > 0) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        when {
-                            ms == null -> BotonRedondo("▶", 46.dp, Verde) { Gym.cronoEjercicio(dia, ej, "iniciar") }
-                            parado -> {
-                                BotonRedondo("▶", 46.dp, Verde) { Gym.cronoEjercicio(dia, ej, "seguir") }
-                                BotonRedondo("↺", 46.dp) { Gym.cronoEjercicio(dia, ej, "iniciar") }
-                            }
-                            else -> BotonRedondo("❚❚", 46.dp, Naranja) { Gym.cronoEjercicio(dia, ej, "parar") }
-                        }
-                    }
+                    if (manejable) Text(if (ms == null) "toca para empezar" else "1 toque para/sigue · 2 a cero", color = Gris, fontSize = 11.sp)
                 }
                 Pulso.leer()?.let { (hr, kcal) ->
                     Column(horizontalAlignment = Alignment.End) {

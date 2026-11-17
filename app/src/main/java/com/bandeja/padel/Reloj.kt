@@ -107,10 +107,18 @@ private fun Hora(now: Long, size: Int = 17) {
 @Composable
 private fun Datos(tiempo: String, hr: Int, kcal: Int?) {
     Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(tiempo, fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Color.White)
+        TiempoSesion(tiempo, 17)
         Text("♥" + (if (hr > 0) hr else "--"), fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Rojo)
         if (kcal != null) Text("🔥$kcal", fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = NaranjaTxt)
     }
+}
+
+/** Tiempo de la sesión: tocarlo pausa o sigue (en pausa sale en naranja con II). */
+@Composable
+private fun TiempoSesion(tiempo: String, size: Int) {
+    val pausada = Gym.sesion().pausada
+    Text((if (pausada) "II " else "") + tiempo, fontSize = size.sp, lineHeight = (size + 2).sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold,
+        color = if (pausada) NaranjaTxt else Color.White, modifier = Modifier.clickable { Gym.pausarSesion() })
 }
 
 @Composable
@@ -298,7 +306,9 @@ private fun ListaDia(dia: Dia, ses: Gym.Sesion, now: Long, onEjercicio: (Int) ->
         item {
             Row {
                 Text(dia.tag.uppercase(), fontSize = 19.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id))
-                if (ses.inicio > 0) Text(" · " + Fechas.hms(ses.duracionMs(now) / 1000), fontSize = 19.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Color.White)
+                if (ses.inicio > 0) Text(" · " + (if (ses.pausada) "II " else "") + Fechas.hms(ses.duracionMs(now) / 1000), fontSize = 19.sp, fontFamily = Barlow,
+                    fontWeight = FontWeight.Bold, color = if (ses.pausada) NaranjaTxt else Color.White,
+                    modifier = Modifier.clickable(enabled = ses.fin == 0L) { Gym.pausarSesion() })
             }
         }
         dia.ejercicios.forEachIndexed { i, e ->
@@ -441,7 +451,7 @@ private fun BotonTerminada(serie: Int, onHecha: (Int) -> Unit) {
 @Composable
 private fun DatosPeq(tiempo: String, hr: Int, kcal: Int?) {
     Row(Modifier.height(18.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(tiempo, fontSize = 15.sp, lineHeight = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Color.White)
+        TiempoSesion(tiempo, 15)
         Text("♥" + (if (hr > 0) hr else "--"), fontSize = 15.sp, lineHeight = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Rojo)
         if (kcal != null) Text("🔥$kcal", fontSize = 15.sp, lineHeight = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = NaranjaTxt)
     }

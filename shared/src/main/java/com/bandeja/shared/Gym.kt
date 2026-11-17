@@ -93,13 +93,18 @@ object Gym {
         val timer: Temporizador?,
         /** Cronómetro de cada ejercicio: clave -> (inicio, fin). fin = 0 mientras sigue. */
         val tiempos: Map<String, Pair<Long, Long>> = emptyMap(),
+        /** Pausa de la sesión: cuándo se pausó (0 = corriendo) y ms parados en total (no cuentan). */
+        val pausa: Long = 0,
+        val parado: Long = 0,
     ) {
         fun tiempoEjMs(key: String, now: Long): Long? = tiempos[key]?.let { (a, b) -> (if (b > 0) b else if (fin > 0 && fin > a) fin else now) - a }
         fun duracionMs(now: Long): Long = when {
             inicio == 0L -> 0
-            fin > 0 -> fin - inicio
-            else -> now - inicio
-        }
+            fin > 0 -> fin - inicio - parado
+            pausa > 0 -> pausa - inicio - parado
+            else -> now - inicio - parado
+        }.coerceAtLeast(0)
+        val pausada: Boolean get() = inicio > 0 && fin == 0L && pausa > 0
         fun hechas(key: String): Set<Int> = hechas[key] ?: emptySet()
     }
 
@@ -119,7 +124,8 @@ object Gym {
         o.optJSONObject("ej")?.let { e ->
             e.keys().forEach { k -> e.optJSONArray(k)?.let { a -> tiempos[k] = a.optLong(0) to a.optLong(1) } }
         }
-        return Sesion(hoy, o.optString("dia").ifEmpty { null }, o.optLong("start"), o.optLong("end"), h, t, tiempos)
+        return Sesion(hoy, o.optString("dia").ifEmpty { null }, o.optLong("start"), o.optLong("end"), h, t, tiempos,
+            o.optLong("pausa"), o.optLong("parado"))
     }
 
     private fun guardar(s: Sesion) {
@@ -128,6 +134,8 @@ object Gym {
             put("dia", s.dia ?: JSONObject.NULL)
             put("start", s.inicio)
             put("end", s.fin)
+            put("pausa", s.pausa)
+            put("parado", s.parado)
             put("done", JSONObject().apply { s.hechas.forEach { (k, v) -> put(k, JSONArray(v.sorted())) } })
             put("ej", JSONObject().apply { s.tiempos.forEach { (k, v) -> put(k, JSONArray().put(v.first).put(v.second)) } })
             put("timer", s.timer?.let {
@@ -153,8 +161,12 @@ object Gym {
         var inicio = s.inicio
         var fin = s.fin
         var timer = s.timer
+        var pausa = s.pausa
+        var parado = s.parado
         // Otra rutina el mismo día después de terminar una: empieza una sesión nueva.
-        if (hecha && fin > 0 && s.dia != dia.id) { inicio = 0L; fin = 0L; timer = null }
+        if (hecha && fin > 0 && s.dia != dia.id) { inicio = 0L; fin = 0L; timer = null; pausa = 0L; parado = 0L }
+        // Hacer una serie con la sesión en pausa la pone en marcha otra vez.
+        if (hecha && pausa > 0 && fin == 0L) { parado += now - pausa; pausa = 0L }
         if (hecha) {
             if (inicio == 0L) inicio = now
             // Se guarda el día con los valores (aunque no se hayan cambiado).
@@ -170,7 +182,7 @@ object Gym {
         } else if (timer?.key == key && timer.serie == serie) {
             timer = null
         }
-        if (!hecha && fin > 0 && ej == ultimo(dia)) fin = 0
+        if (!hecha && fin > 0 && ej == ultimo(dia)) { parado += now - fin; fin = 0 }
         // Cronómetro del ejercicio: se para al hacer todas las series y sigue si se desmarca una.
         val tiempos = s.tiempos.toMutableMap()
         val te = tiempos[key]
@@ -178,7 +190,7 @@ object Gym {
         if (ej.numSeries > 0 && set.size >= ej.numSeries) {
             if (te == null) tiempos[key] = now to now else if (te.second == 0L) tiempos[key] = te.first to now
         } else if (antes && te != null && te.second > 0) tiempos[key] = (te.first + now - te.second) to 0L // sigue donde se quedó
-        s = s.copy(dia = dia.id, inicio = inicio, fin = fin, hechas = hechas, timer = timer, tiempos = tiempos)
+        s = s.copy(dia = dia.id, inicio = inicio, fin = fin, hechas = hechas, timer = timer, tiempos = tiempos, pausa = pausa, parado = parado)
         guardar(s)
     }
 
@@ -189,6 +201,7 @@ object Gym {
         val key = clave(dia.id, ej)
         val nueva = s.inicio == 0L || (s.fin > 0 && s.dia != dia.id)
         guardar(s.copy(dia = dia.id, inicio = if (nueva) now else s.inicio, fin = if (nueva) 0L else s.fin,
+            pausa = if (nueva) 0L else s.pausa, parado = if (nueva) 0L else s.parado,
             timer = Temporizador("trabajo", key, serie, ej.trabajoSeg, now + ej.trabajoSeg * 1000L, false, 0)))
     }
 
@@ -237,6 +250,10 @@ object Gym {
      * Al continuar se corre el inicio lo que estuvo parado, así no cuenta ese rato.
      */
     fun cronoEjercicio(dia: Dia, ej: Ejercicio, accion: String) {
+        if (accion == "tocar") {
+            val te = sesion().tiempos[clave(dia.id, ej)]
+            return cronoEjercicio(dia, ej, if (te == null) "iniciar" else if (te.second == 0L) "parar" else "seguir")
+        }
         val now = System.currentTimeMillis()
         val s = sesion()
         val key = clave(dia.id, ej)
@@ -274,13 +291,22 @@ object Gym {
         val s = sesion()
         if (s.inicio == 0L || s.fin == 0L) return
         val now = System.currentTimeMillis()
-        guardar(s.copy(inicio = now - (s.fin - s.inicio), fin = 0L))
+        // El inicio no se toca (el reloj guarda las kcal con él); el rato terminado cuenta como parado.
+        guardar(s.copy(parado = s.parado + (now - s.fin), fin = 0L, pausa = 0L))
+    }
+
+    /** Tocar el tiempo de la sesión: pausa o sigue. Lo parado no cuenta. */
+    fun pausarSesion() {
+        val s = sesion()
+        if (s.inicio == 0L || s.fin > 0) return
+        val now = System.currentTimeMillis()
+        guardar(if (s.pausa > 0) s.copy(parado = s.parado + (now - s.pausa), pausa = 0L) else s.copy(pausa = now))
     }
 
     fun terminarSesion() {
         val s = sesion()
         if (s.inicio == 0L) return
-        guardar(s.copy(fin = if (s.fin > 0) s.fin else System.currentTimeMillis(), timer = null))
+        guardar(s.copy(fin = if (s.fin > 0) s.fin else if (s.pausa > 0) s.pausa else System.currentTimeMillis(), pausa = 0L, timer = null))
     }
 
     fun reiniciarSesion() = Docs.delete(LIVE)

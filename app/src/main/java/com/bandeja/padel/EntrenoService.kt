@@ -186,7 +186,7 @@ class EntrenoService : Service() {
             gymSuma = pr.getLong("suma_${s.inicio}", 0L); gymN = pr.getLong("n_${s.inicio}", 0L); gymMax = pr.getInt("max_${s.inicio}", 0)
         }
         val hr = Pulsometro.bpm.value
-        if (hr > 0) {
+        if (hr > 0 && !s.pausada) { // en pausa no suma
             gymKcal += Kcal.porMinuto(hr) / 60.0
             gymSuma += hr; gymN++; if (hr > gymMax) gymMax = hr
         }
@@ -200,7 +200,7 @@ class EntrenoService : Service() {
         val t = s.timer
         val texto = if (t != null && !t.terminado(now)) {
             (if (t.tipo == "trabajo") "Serie" else "Descanso") + " " + Fechas.mmss(t.restanteMs(now) / 1000)
-        } else "Sesión " + Fechas.hms(s.duracionMs(now) / 1000)
+        } else (if (s.pausada) "En pausa " else "Sesión ") + Fechas.hms(s.duracionMs(now) / 1000)
         if (tickN % 5 == 0L || texto != notifTexto) actualizar("Gym · " + (Rutina.dia(s.dia ?: "")?.nombre ?: ""), texto)
         if (t != null && t.terminado(now) && avisadoFin != t.fin) {
             avisadoFin = t.fin

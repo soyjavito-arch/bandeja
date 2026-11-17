@@ -66,7 +66,7 @@ class DescansoService : Service() {
                 d?.ejercicios?.firstOrNull { Gym.clave(d.id, it) == tt.key }?.nombre
             } ?: ""
             val (titulo, texto) = when {
-                t == null -> "Gym · ${Fechas.hms(s.duracionMs(now) / 1000)}" to "Sesión en marcha"
+                t == null -> "Gym · ${Fechas.hms(s.duracionMs(now) / 1000)}" to (if (s.pausada) "Sesión en pausa" else "Sesión en marcha")
                 t.pausa -> "Descanso en pausa · ${Fechas.mmss(t.restanteMs(now) / 1000)}" to nombre
                 t.terminado(now) -> "¡Descanso terminado!" to nombre
                 t.tipo == "trabajo" -> "Serie ${t.serie + 1} · quedan ${Fechas.mmss((t.restanteMs(now) + 999) / 1000)}" to nombre
