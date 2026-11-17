@@ -41,7 +41,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
+import com.bandeja.shared.Copia
 import com.bandeja.shared.Docs
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.runtime.remember
 import com.bandeja.shared.Gym
 import com.bandeja.shared.Sync
 
@@ -97,6 +100,22 @@ fun App() {
 /** Al abrir la app: eliges qué toca. */
 @Composable
 private fun Inicio(onElegir: (String) -> Unit) {
+    val ctx = LocalContext.current
+    var aviso by remember { mutableStateOf<String?>(null) }
+    // Se guarda con el selector de archivos de Android: eliges «Drive» y la carpeta que quieras.
+    val subir = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) aviso = runCatching {
+            ctx.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(Copia.crear().toByteArray()) }
+            "Copia guardada. Ya la tienes en Drive."
+        }.getOrElse { "No se pudo guardar la copia: ${it.message}" }
+    }
+    val recuperar = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) aviso = runCatching {
+            val txt = ctx.contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+            val n = Copia.restaurar(txt)
+            if (n > 0) "Copia recuperada: $n datos actualizados." else "Nada que recuperar: lo que tienes ya está al día."
+        }.getOrElse { "Ese archivo no es una copia de la app." }
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Spacer(Modifier.height(30.dp))
         Text("¿QUÉ TOCA HOY?", color = Tinta, fontSize = 36.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
@@ -115,5 +134,20 @@ private fun Inicio(onElegir: (String) -> Unit) {
                 Text(t.third, color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp)
             }
         }
+        Spacer(Modifier.height(18.dp))
+        Text("COPIA DE SEGURIDAD", color = Gris, fontSize = 16.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
+        Pildora("☁️  Subir a Drive", Tarjeta, Modifier.fillMaxWidth()) { subir.launch(Copia.nombre()) }
+        Spacer(Modifier.height(8.dp))
+        Pildora("Recuperar una copia", Tarjeta, Modifier.fillMaxWidth()) { recuperar.launch(arrayOf("application/json", "application/octet-stream", "*/*")) }
+        Text("Al subir, elige Drive en la lista y la carpeta. Para recuperar, abre el archivo de la copia.",
+            color = Gris, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+    }
+    aviso?.let {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { aviso = null },
+            text = { Text(it) },
+            confirmButton = { androidx.compose.material3.TextButton({ aviso = null }) { Text("Vale") } },
+        )
     }
 }

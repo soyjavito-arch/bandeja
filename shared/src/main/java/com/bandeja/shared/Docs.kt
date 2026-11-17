@@ -68,6 +68,17 @@ object Docs {
         return true
     }
 
+    /** Copia de seguridad: lo que traiga y sea más nuevo se guarda y se manda también al otro aparato. */
+    fun importar(key: String, raw: String): Boolean {
+        val e = Entry.parse(raw) ?: return false
+        synchronized(this) {
+            val cur = cache[key]
+            if (cur != null && cur.t >= e.t) return false
+        }
+        write(key, e, true)
+        return true
+    }
+
     fun raw(key: String): String? = synchronized(this) { cache[key]?.raw() }
 
     fun allRaw(): Map<String, String> = synchronized(this) { cache.mapValues { it.value.raw() } }
