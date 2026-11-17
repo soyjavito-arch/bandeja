@@ -112,7 +112,7 @@ private fun Calendario(sel: String, onSel: (String) -> Unit) {
     // El mes que se ve sigue al día elegido; las flechas solo pasan de mes.
     var anio by rememberSaveable(sel) { mutableIntStateOf(sel.take(4).toIntOrNull() ?: hoy.get(Calendar.YEAR)) }
     var mes by rememberSaveable(sel) { mutableIntStateOf((sel.substring(5, 7).toIntOrNull() ?: (hoy.get(Calendar.MONTH) + 1)) - 1) }
-    var quitar by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var quitar by remember { mutableStateOf<String?>(null) } // día con el diálogo de borrar abierto
 
     // Qué se hizo cada día: entrenos del gym, pádel y bici.
     val marcas = HashMap<String, MutableList<String>>()
@@ -148,7 +148,6 @@ private fun Calendario(sel: String, onSel: (String) -> Unit) {
                     val m = marcas[f]
                     m?.forEach { cuenta[it] = (cuenta[it] ?: 0) + 1 }
                     val fondo = m?.firstOrNull()?.let { color(it) }
-                    val gymDia = m?.firstOrNull { it in Rutina.dias.map { r -> r.id } }
                     val elegido = f == sel
                     Box(
                         Modifier.weight(1f).height(40.dp)
@@ -156,10 +155,10 @@ private fun Calendario(sel: String, onSel: (String) -> Unit) {
                             .padding(if (elegido) 4.dp else 0.dp)
                             .clip(RoundedCornerShape(6.dp)).background(fondo ?: Fondo)
                             .border(if (f == hoyIso) 2.dp else 0.dp, if (f == hoyIso) Tinta else Color.Transparent, RoundedCornerShape(6.dp))
-                            .pointerInput(f, gymDia) {
+                            .pointerInput(f, m?.joinToString()) {
                                 detectTapGestures(
                                     onTap = { onSel(f) },
-                                    onLongPress = { if (gymDia != null) quitar = gymDia to f },
+                                    onLongPress = { if (m != null) quitar = f },
                                 )
                             },
                         contentAlignment = Alignment.Center,
@@ -179,16 +178,32 @@ private fun Calendario(sel: String, onSel: (String) -> Unit) {
                 }
             }
         }
-        Text("Toca un día para ver sus datos en todas las pestañas. Mantén pulsado un día del gym para quitarlo si fue de prueba.",
-            color = Gris, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
     }
-    quitar?.let { (dia, f) ->
+    // Mantener pulsado un día: borrar lo que se hizo (gym, pádel o bici), uno a uno.
+    var borrados by remember { mutableIntStateOf(0) }
+    quitar?.let { f ->
+        if (borrados < 0) return@let // leerlo hace que la lista se rehaga al borrar
+        val cosas = ArrayList<Pair<String, () -> Unit>>()
+        Gym.sesiones().forEach { (dia, fechas) ->
+            if (f in fechas) cosas += "${Rutina.dia(dia)?.tag ?: dia}" to { Gym.quitarSesion(dia, f); Docs.delete("gym-$f-$dia") }
+        }
+        Docs.keys("padel-$f").sorted().forEach { k -> cosas += "Pádel ${k.removePrefix("padel-$f-").let { "${it.take(2)}:${it.drop(2)}" }}" to { Docs.delete(k) } }
+        Docs.keys("bici-$f").sorted().forEach { k -> cosas += "Bici ${k.removePrefix("bici-$f-").let { "${it.take(2)}:${it.drop(2)}" }}" to { Docs.delete(k) } }
+        if (cosas.isEmpty()) { quitar = null; return@let }
         AlertDialog(
             onDismissRequest = { quitar = null },
-            title = { Text("¿Quitar este día?") },
-            text = { Text("${Rutina.dia(dia)?.tag ?: dia} del ${ddmm(f)} deja de contar como día entrenado. Las series apuntadas no se borran.") },
-            confirmButton = { TextButton({ Gym.quitarSesion(dia, f); quitar = null }) { Text("Quitar", color = Rojo) } },
-            dismissButton = { TextButton({ quitar = null }) { Text("Cancelar") } },
+            title = { Text("Borrar del ${ddmm(f)}") },
+            text = {
+                Column {
+                    cosas.forEach { (nombre, borrar) ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(nombre, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            TextButton({ borrar(); borrados++ }) { Text("Borrar", color = Rojo, fontSize = 16.sp) }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton({ quitar = null }) { Text("Listo") } },
         )
     }
 }
