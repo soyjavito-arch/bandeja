@@ -107,8 +107,9 @@ private fun EnMarcha(v: Bici.Vivo) {
         Grafica(v.hrs, Modifier.fillMaxWidth().height(170.dp))
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Dato("Media", "${v.media}", androidx.compose.ui.graphics.SolidColor(Verde))
-            Dato("Máx", "${v.max}", androidx.compose.ui.graphics.SolidColor(Rojo))
+            // Media y máximo del color de la zona en la que caen.
+            Dato("Media", "${v.media}", androidx.compose.ui.graphics.SolidColor(colorZona(Zonas.zona(v.media))))
+            Dato("Máx", "${v.max}", androidx.compose.ui.graphics.SolidColor(colorZona(Zonas.zona(v.max))))
             // Kcal como una llama: de amarillo arriba a rojo abajo.
             Dato("Kcal", "🔥${v.kcal}", androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFFF2B300), Color(0xFFD63B3B))))
             v.km?.let { Dato("Km", "%.2f".format(it).replace('.', ',')) }
