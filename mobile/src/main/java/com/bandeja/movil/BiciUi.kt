@@ -107,9 +107,10 @@ private fun EnMarcha(v: Bici.Vivo) {
         Grafica(v.hrs, Modifier.fillMaxWidth().height(170.dp))
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Dato("Media", "${v.media}")
-            Dato("Máx", "${v.max}")
-            Dato("Kcal", "${v.kcal}")
+            Dato("Media", "${v.media}", androidx.compose.ui.graphics.SolidColor(Verde))
+            Dato("Máx", "${v.max}", androidx.compose.ui.graphics.SolidColor(Rojo))
+            // Kcal como una llama: de amarillo arriba a rojo abajo.
+            Dato("Kcal", "🔥${v.kcal}", androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFFF2B300), Color(0xFFD63B3B))))
             v.km?.let { Dato("Km", "%.2f".format(it).replace('.', ',')) }
         }
     }
@@ -132,9 +133,9 @@ private fun EnMarcha(v: Bici.Vivo) {
 }
 
 @Composable
-private fun Dato(t: String, v: String) {
+private fun Dato(t: String, v: String, pincel: androidx.compose.ui.graphics.Brush = androidx.compose.ui.graphics.SolidColor(Tinta)) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(v, color = Tinta, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text(v, style = androidx.compose.ui.text.TextStyle(brush = pincel, fontSize = 28.sp, fontWeight = FontWeight.Bold))
         Text(t, color = Gris, fontSize = 12.sp)
     }
 }
