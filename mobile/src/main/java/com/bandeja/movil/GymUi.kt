@@ -156,7 +156,7 @@ private fun SesionCaja(ses: Gym.Sesion, now: Long, grande: Boolean, ejKey: Strin
                 }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(10.dp).clip(CircleShape).background(if (ses.fin > 0) Verde else if (ses.pausada) Naranja else Rojo))
-                        Text(if (ses.fin > 0) "  Sesión terminada" else if (ses.pausada) "  Sesión en pausa · toca para seguir" else "  Sesión en marcha",
+                        Text(if (ses.fin > 0) "  Sesión terminada" else if (ses.pausada) "  Sesión en pausa" else "  Sesión en marcha",
                             color = if (ses.pausada) Naranja else Gris, fontSize = 13.sp)
                     }
                     Text(Fechas.hms(ses.duracionMs(now) / 1000), color = if (ses.pausada) Naranja else Tinta,
@@ -198,7 +198,6 @@ private fun SesionCaja(ses: Gym.Sesion, now: Long, grande: Boolean, ejKey: Strin
                     Text(if (completo && parado) "Ejercicio ✓" else if (parado) "Ejercicio · parado" else "Ejercicio", color = if (parado) color else Gris, fontSize = 13.sp)
                     Text(ms?.let { Fechas.mmss(it / 1000) } ?: "--:--", color = color, fontSize = 36.sp,
                         fontFamily = Barlow, fontWeight = FontWeight.Bold)
-                    if (manejable) Text(if (ms == null) "toca para empezar" else "1 toque para/sigue · 2 a cero", color = Gris, fontSize = 11.sp)
                 }
                 Pulso.leer()?.let { (hr, kcal) ->
                     Column(horizontalAlignment = Alignment.End) {
