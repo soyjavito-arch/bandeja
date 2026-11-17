@@ -173,7 +173,7 @@ private fun FilaPartido(p: Partidos.Resumen, onAbrir: () -> Unit) {
             val extra = buildList {
                 if (p.dur > 0) add(Fechas.hms(p.dur))
                 p.pm?.let { add("♥ $it") }
-                p.kcal?.let { add("🔥 $it kcal") }
+                p.kcal?.let { add(if (Docs.get(p.key)?.optBoolean("kcalEst") == true) "🔥 ≈$it kcal" else "🔥 $it kcal") }
             }.joinToString("  ·  ")
             if (extra.isNotEmpty()) Text(extra, color = Gris, fontSize = 13.sp)
             if (p.nota.isNotEmpty()) Text(p.nota, color = Color(0xFFCFCFD8), fontSize = 13.sp)
