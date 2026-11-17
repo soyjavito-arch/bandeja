@@ -246,6 +246,12 @@ private fun EditarPartido(key: String, onCerrar: () -> Unit) {
                 Text("Duración (min)", color = Gris, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 Paso("$minutos", "", Tinta, onMenos = { minutos = (minutos - 5).coerceAtLeast(5) }, onMas = { minutos = (minutos + 5).coerceAtMost(240) })
             }
+            // Sin reloj: calorías estimadas con lo que gasta por minuto en sus partidos grabados.
+            if (nuevo || Docs.get(key)?.optBoolean("kcalEst") == true) {
+                val porMin = remember { Partidos.kcalPorMinuto() }
+                Text("🔥 ≈ ${Math.round(porMin * minutos)} kcal · estimadas con tus partidos (${"%.1f".format(porMin).replace('.', ',')} kcal/min)",
+                    color = Naranja, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+            }
         }
         Spacer(Modifier.height(10.dp))
         Caja {

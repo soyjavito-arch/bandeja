@@ -84,6 +84,31 @@ object Partidos {
 
     fun todos(): List<Resumen> = Docs.keys("padel-").mapNotNull { leer(it) }.sortedByDescending { it.inicio }
 
+    /**
+     * Calorías por minuto en sus partidos de verdad (los grabados con el reloj, de 10 min o más).
+     * Sin partidos grabados, se usa un pulso medio de pádel de 130 con su fórmula.
+     */
+    fun kcalPorMinuto(): Double {
+        var kcal = 0.0; var min = 0.0
+        Docs.keys("padel-").forEach { k ->
+            val d = Docs.get(k) ?: return@forEach
+            if (d.optString("src") == "manual" || d.optBoolean("kcalEst") || d.isNull("kcal")) return@forEach
+            val m = d.optLong("dur") / 60.0
+            val c = d.optDouble("kcal", 0.0)
+            if (m >= 10 && c > 0) { kcal += c; min += m }
+        }
+        return if (min > 0) kcal / min else Kcal.porMinuto(130)
+    }
+
+    /** Pulso medio de sus partidos grabados (para los apuntados a mano), o null si no hay. */
+    private fun pulsoMedio(): Int? {
+        val l = Docs.keys("padel-").mapNotNull { k -> Docs.get(k)?.takeIf { it.optString("src") != "manual" && !it.isNull("pm") }?.optInt("pm") }
+            .filter { it > 0 }
+        return if (l.isEmpty()) null else l.average().toInt()
+    }
+
+    fun kcalEstimadas(durSeg: Long): Int = Math.round(kcalPorMinuto() * durSeg / 60.0).toInt()
+
     /** Partido apuntado a mano en el móvil (no se grabó con el reloj). */
     fun crear(inicio: Long, sets: List<Pair<Int, Int>>, nota: String, unSet: Boolean, durSeg: Long) {
         var t = inicio
@@ -92,7 +117,9 @@ object Partidos {
         Docs.put(k, JSONObject().apply {
             put("fecha", Fechas.dia(t)); put("inicio", Fechas.iso(t)); put("dur", durSeg)
             put("terminado", true); put("ptos", JSONArray().put(0).put(0))
-            put("pm", JSONObject.NULL); put("pmax", JSONObject.NULL); put("pmin", JSONObject.NULL); put("kcal", JSONObject.NULL)
+            // Calorías (y pulso medio) estimados con lo que gasta en sus partidos grabados con el reloj.
+            put("pm", pulsoMedio() ?: JSONObject.NULL); put("pmax", JSONObject.NULL); put("pmin", JSONObject.NULL)
+            put("kcal", kcalEstimadas(durSeg)); put("kcalEst", true)
             put("hr", JSONArray()); put("reglas", JSONObject.NULL); put("src", "manual")
             put("sets", JSONArray())
         })
@@ -102,7 +129,10 @@ object Partidos {
     /** Guarda los cambios hechos a mano en el móvil. */
     fun editar(key: String, sets: List<Pair<Int, Int>>, nota: String, unSet: Boolean, nuevaFecha: Long?, durSeg: Long? = null) {
         val d = Docs.get(key) ?: return
-        if (durSeg != null) d.put("dur", durSeg)
+        if (durSeg != null) {
+            d.put("dur", durSeg)
+            if (d.optBoolean("kcalEst")) d.put("kcal", kcalEstimadas(durSeg))
+        }
         val arr = JSONArray()
         var ga = 0; var gb = 0
         sets.forEach { (a, b) ->
