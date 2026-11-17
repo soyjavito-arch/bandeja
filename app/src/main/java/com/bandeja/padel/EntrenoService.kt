@@ -87,7 +87,6 @@ class EntrenoService : Service() {
         Docs.init(this)
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CANAL, "Entreno en marcha", NotificationManager.IMPORTANCE_LOW))
-        Avisos.preparar(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -292,9 +291,9 @@ class EntrenoService : Service() {
                 if (s % 5 == 0L) { hrs.addLast(hr); while (hrs.size > 72) hrs.removeFirst() }
                 ritmo?.pulso(hr, now)?.let { ev ->
                     when (ev) {
-                        "start" -> { Avisos.vibrar(this@EntrenoService, Avisos.START); Avisos.decir(this@EntrenoService, "Start") }
-                        "break" -> { Avisos.vibrar(this@EntrenoService, Avisos.BREAK); Avisos.decir(this@EntrenoService, "Break") }
-                        "finish" -> { Avisos.vibrar(this@EntrenoService, Avisos.FINISH); Avisos.decir(this@EntrenoService, "Finish") }
+                        "start" -> { Avisos.vibrar(this@EntrenoService, Avisos.START) }
+                        "break" -> { Avisos.vibrar(this@EntrenoService, Avisos.BREAK) }
+                        "finish" -> { Avisos.vibrar(this@EntrenoService, Avisos.FINISH) }
                     }
                     publicar(now, hr)
                 }

@@ -7,7 +7,7 @@ import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
 import java.util.Locale
 
-/** Vibración y voz ("Start", "Break", "Finish"). */
+/** Solo vibración: el reloj no hace ningún sonido (Javi entrena con cascos y música). */
 object Avisos {
     private var tts: TextToSpeech? = null
     private var listo = false
