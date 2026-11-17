@@ -285,8 +285,12 @@ private fun ListaDia(dia: Dia, ses: Gym.Sesion, now: Long, onEjercicio: (Int) ->
     val actual = Gym.actual(dia)
     ScalingLazyColumn(Modifier.fillMaxSize()) {
         item { Hora(now) }
-        item { Text(dia.tag.uppercase(), fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id)) }
-        if (ses.inicio > 0) item { Text(Fechas.hms(ses.duracionMs(now) / 1000), fontSize = 32.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Color.White) }
+        item {
+            Row {
+                Text(dia.tag.uppercase(), fontSize = 19.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id))
+                if (ses.inicio > 0) Text(" · " + Fechas.hms(ses.duracionMs(now) / 1000), fontSize = 19.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
         dia.ejercicios.forEachIndexed { i, e ->
             item {
                 val h = ses.hechas(Gym.clave(dia.id, e)).size
@@ -297,15 +301,15 @@ private fun ListaDia(dia: Dia, ses: Gym.Sesion, now: Long, onEjercicio: (Int) ->
                     else -> "$h/${e.numSeries}"
                 }
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Fila)
-                        .then(if (i == actual && ses.inicio > 0) Modifier.border(1.5.dp, colorDia(dia.id), RoundedCornerShape(14.dp)) else Modifier)
-                        .clickable { onEjercicio(i) }.padding(start = 6.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Fila)
+                        .then(if (i == actual && ses.inicio > 0) Modifier.border(2.dp, colorDia(dia.id), RoundedCornerShape(24.dp)) else Modifier)
+                        .clickable { onEjercicio(i) }.padding(start = 6.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    GifView(e.clave, Modifier.size(24.dp).clip(RoundedCornerShape(5.dp)))
-                    Spacer(Modifier.width(8.dp))
-                    Text(e.nombre, fontSize = 13.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    Text(txt, fontSize = 15.sp, fontFamily = Barlow, color = if (txt == "✓") VerdeTxt else Claro, fontWeight = FontWeight.SemiBold)
+                    GifView(e.clave, Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)))
+                    Spacer(Modifier.width(9.dp))
+                    Text(e.nombre, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text(txt, fontSize = 24.sp, fontFamily = Barlow, color = if (txt == "✓") VerdeTxt else Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }
