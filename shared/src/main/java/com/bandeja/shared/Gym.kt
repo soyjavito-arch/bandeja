@@ -174,9 +174,10 @@ object Gym {
         // Cronómetro del ejercicio: se para al hacer todas las series y sigue si se desmarca una.
         val tiempos = s.tiempos.toMutableMap()
         val te = tiempos[key]
+        val antes = s.hechas(key).size >= ej.numSeries
         if (ej.numSeries > 0 && set.size >= ej.numSeries) {
             if (te == null) tiempos[key] = now to now else if (te.second == 0L) tiempos[key] = te.first to now
-        } else if (te != null && te.second > 0) tiempos[key] = te.first to 0L
+        } else if (antes && te != null && te.second > 0) tiempos[key] = (te.first + now - te.second) to 0L // sigue donde se quedó
         s = s.copy(dia = dia.id, inicio = inicio, fin = fin, hechas = hechas, timer = timer, tiempos = tiempos)
         guardar(s)
     }
@@ -229,6 +230,24 @@ object Gym {
         val key = clave(dia.id, ej)
         if (key in s.tiempos || s.hechas(key).size >= ej.numSeries) return
         guardar(s.copy(tiempos = s.tiempos + (key to (System.currentTimeMillis() to 0L))))
+    }
+
+    /**
+     * Cronómetro del ejercicio a mano. Se guarda como (inicio, parada): parada = 0 si corre.
+     * Al continuar se corre el inicio lo que estuvo parado, así no cuenta ese rato.
+     */
+    fun cronoEjercicio(dia: Dia, ej: Ejercicio, accion: String) {
+        val now = System.currentTimeMillis()
+        val s = sesion()
+        val key = clave(dia.id, ej)
+        val te = s.tiempos[key]
+        val nuevo = when (accion) {
+            "iniciar" -> now to 0L
+            "parar" -> if (te != null && te.second == 0L) te.first to now else return
+            "seguir" -> if (te != null && te.second > 0) (te.first + now - te.second) to 0L else return
+            else -> return
+        }
+        guardar(s.copy(tiempos = s.tiempos + (key to nuevo)))
     }
 
     /**
