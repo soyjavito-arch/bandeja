@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.nativeCanvas
 import com.bandeja.shared.Bici
 import com.bandeja.shared.Docs
 import com.bandeja.shared.Fechas
@@ -103,7 +104,7 @@ private fun EnMarcha(v: Bici.Vivo) {
         }
         if (v.pausa) Text("EN PAUSA", color = Oro, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(8.dp))
-        Grafica(v.hrs, Modifier.fillMaxWidth().height(130.dp))
+        Grafica(v.hrs, Modifier.fillMaxWidth().height(170.dp))
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Dato("Media", "${v.media}")
@@ -143,26 +144,37 @@ private fun Grafica(hrs: List<Int>, modifier: Modifier) {
     val aj = Bici.ajustes()
     Canvas(modifier) {
         val datos = hrs.filter { it > 0 }
-        // Siempre se ven las 5 zonas como franjas de color, con el pulso encima.
+        // Números de las zonas a la izquierda (como en Polar); la gráfica empieza después.
+        val m = 34.dp.toPx()
+        val ancho = size.width - m
         val lo = minOf(datos.minOrNull() ?: 999, Zonas.desde(1)) - 4
         val hi = maxOf(datos.maxOrNull() ?: 0, Zonas.desde(6)) + 4
         fun y(b: Int) = size.height * (1f - (b - lo).toFloat() / (hi - lo).coerceAtLeast(1))
         (1..5).forEach { z ->
             val top = y(if (z == 5) hi else Zonas.desde(z + 1))
             val bot = y(if (z == 1) lo else Zonas.desde(z))
-            drawRect(colorZona(z).copy(alpha = 0.16f), Offset(0f, top), androidx.compose.ui.geometry.Size(size.width, bot - top))
+            drawRect(colorZona(z).copy(alpha = 0.16f), Offset(m, top), androidx.compose.ui.geometry.Size(ancho, bot - top))
+        }
+        val p = android.graphics.Paint().apply {
+            isAntiAlias = true; textSize = 13.sp.toPx(); color = android.graphics.Color.rgb(90, 102, 99)
+            textAlign = android.graphics.Paint.Align.RIGHT; isFakeBoldText = true
+        }
+        (1..6).forEach { z ->
+            val b = Zonas.desde(z)
+            drawLine(Linea, Offset(m, y(b)), Offset(size.width, y(b)), strokeWidth = 1.5f)
+            drawContext.canvas.nativeCanvas.drawText("$b", m - 6.dp.toPx(), y(b) + p.textSize * 0.35f, p)
         }
         if (aj.on) {
             listOf(aj.lo, aj.hi).forEach { b ->
-                drawLine(Tinta.copy(alpha = 0.45f), Offset(0f, y(b)), Offset(size.width, y(b)), strokeWidth = 2f,
+                drawLine(Tinta.copy(alpha = 0.45f), Offset(m, y(b)), Offset(size.width, y(b)), strokeWidth = 2f,
                     pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(12f, 8f)))
             }
         }
         if (datos.size < 2) return@Canvas
         // Cada tramo de la línea va del color de su zona.
         for (i in 1 until datos.size) {
-            val x0 = size.width * (i - 1) / (datos.size - 1)
-            val x1 = size.width * i / (datos.size - 1)
+            val x0 = m + ancho * (i - 1) / (datos.size - 1)
+            val x1 = m + ancho * i / (datos.size - 1)
             drawLine(colorZona(Zonas.zona(datos[i])), Offset(x0, y(datos[i - 1])), Offset(x1, y(datos[i])), strokeWidth = 6f,
                 cap = androidx.compose.ui.graphics.StrokeCap.Round)
         }
