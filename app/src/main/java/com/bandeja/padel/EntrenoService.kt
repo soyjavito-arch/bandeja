@@ -192,7 +192,7 @@ class EntrenoService : Service() {
     }
 
     private fun enPrimerPlano(texto: String) {
-        val n = notificacion("Bandeja", texto)
+        val n = notificacion("Entrenar y pádel", texto)
         var tipos = 0
         if (tiene(Manifest.permission.BODY_SENSORS)) tipos = tipos or ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH
         if (tiene(Manifest.permission.BLUETOOTH_CONNECT)) tipos = tipos or ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
