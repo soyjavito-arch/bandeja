@@ -249,7 +249,7 @@ private fun Tablero(t: Gym.Temporizador, now: Long, modifier: Modifier = Modifie
                 fontSize = if (grande) 120.sp else 96.sp, lineHeight = if (grande) 120.sp else 96.sp,
                 fontFamily = Barlow, fontWeight = FontWeight.Bold)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (t.pausa) "En pausa · toca para seguir" else "Toca para pausar", color = Color.White.copy(alpha = 0.7f),
+                Text(if (t.pausa) "En pausa" else "", color = Color.White.copy(alpha = 0.7f),
                     fontSize = 13.sp, modifier = Modifier.weight(1f), textAlign = if (onIr == null) TextAlign.Center else TextAlign.Start)
                 if (onIr != null) {
                     Text("Ir al ejercicio ›", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
