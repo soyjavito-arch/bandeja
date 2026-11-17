@@ -129,6 +129,12 @@ private fun Pastilla(texto: String, color: Color, onClick: () -> Unit, txt: Colo
 
 @Composable
 fun GifView(clave: String, modifier: Modifier) {
+    val ctx = LocalContext.current
+    // Ejercicios sin imagen (p. ej. estiramientos): un icono en vez de un cuadrado blanco vacío.
+    if (!remember(clave) { Gifs.existe(ctx, clave) }) {
+        Box(modifier.background(Boton), contentAlignment = Alignment.Center) { Text("🤸", fontSize = 16.sp) }
+        return
+    }
     AndroidView(
         factory = { ctx -> ImageView(ctx).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setBackgroundColor(android.graphics.Color.WHITE) } },
         update = { Gifs.poner(it, clave, fijo = true) },
@@ -253,7 +259,9 @@ fun GymReloj(onSalir: () -> Unit) {
                     onHecha = { s -> empezarServicio(); Gym.marcar(dia, ej, s) },
                     onTrabajo = { s -> empezarServicio(); Gym.empezarTrabajo(dia, ej, s) },
                     onSaltarTrabajo = { Gym.saltar() },
-                    onLista = { pantalla = "lista" })
+                    onLista = { pantalla = "lista" },
+                    ultimo = Gym.siguiente(dia, idx) == null || idx >= dia.ejercicios.size - 1,
+                    onTerminar = { Gym.terminarSesion(); pantalla = "fin" })
             }
         }
     }
@@ -343,7 +351,10 @@ private fun Serie(
     tiempo: String, hr: Int, kcal: Int?,
     onAnterior: () -> Unit, onSiguiente: () -> Unit,
     onHecha: (Int) -> Unit, onTrabajo: (Int) -> Unit, onSaltarTrabajo: () -> Unit, onLista: () -> Unit,
+    ultimo: Boolean = false, onTerminar: () -> Unit = {},
 ) {
+    val ctx = LocalContext.current
+    val hayGif = remember(ej.clave) { Gifs.existe(ctx, ej.clave) }
     val vals = Gym.valores(dia.id, ej)
     val serie = Gym.primeraPendiente(dia, ej)
     // Todo va en una columna (también tiempo, pulso y kcal) para que nada se monte en la esfera redonda.
@@ -358,8 +369,10 @@ private fun Serie(
                 Text(Fechas.hora(now), fontSize = 17.sp, lineHeight = 18.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Color.White)
             }
             Row(Modifier.height(26.dp).padding(horizontal = 34.dp).clickable(onClick = onLista), verticalAlignment = Alignment.CenterVertically) {
-                GifView(ej.clave, Modifier.size(24.dp).clip(RoundedCornerShape(5.dp)))
-                Spacer(Modifier.width(5.dp))
+                if (hayGif) {
+                    GifView(ej.clave, Modifier.size(24.dp).clip(RoundedCornerShape(5.dp)))
+                    Spacer(Modifier.width(5.dp))
+                }
                 Text(ej.nombre, fontSize = 14.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             when {
@@ -367,7 +380,8 @@ private fun Serie(
                     Text(ej.series, fontSize = 14.sp, color = Claro, fontWeight = FontWeight.Bold)
                     Text(ej.consejo, fontSize = 11.sp, color = Claro, textAlign = TextAlign.Center, maxLines = 3,
                         modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp))
-                    Pastilla("Siguiente", Verde, onSiguiente)
+                    // En el último ejercicio (estiramientos) el botón cierra la sesión y va al resumen.
+                    if (ultimo) Pastilla("Terminar sesión", Verde, onTerminar) else Pastilla("Siguiente", Verde, onSiguiente)
                 }
                 ej.porTiempo -> {
                     Text("SERIE ${serie + 1} DE ${ej.numSeries}", fontSize = 18.sp, lineHeight = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id))
