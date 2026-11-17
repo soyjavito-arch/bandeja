@@ -147,6 +147,12 @@ object Zonas {
         }
     }
 
+    /** Pulso donde empieza cada zona (1..5) y donde acaba la 5 (6). */
+    fun desde(z: Int): Int = when (z) {
+        1 -> max() * 50 / 100; 2 -> max() * 60 / 100; 3 -> max() * 70 / 100
+        4 -> max() * 80 / 100; 5 -> max() * 90 / 100; else -> max()
+    }
+
     fun nombre(z: Int): String = when (z) {
         1 -> "Zona 1 · suave"
         2 -> "Zona 2 · fondo"

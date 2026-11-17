@@ -41,7 +41,9 @@ object Bici {
      * esperando → (pulso ≤ lo) «Start» → subiendo → (pulso ≥ hi) «Break» → recuperando → (≤ lo) «Start»…
      * En el último cambio dice «Finish» en vez de «Break».
      */
-    class Ritmo(val n: Int, val lo: Int, val hi: Int) {
+    class Ritmo(var n: Int, var lo: Int, var hi: Int) {
+        /** Se puede encender, apagar y cambiar en plena bici. */
+        var activo = true
         var estado = "esperando" // esperando, subiendo, recuperando, fin
         var num = 0 // cambio en curso (1..n)
         var desde = 0L
@@ -49,8 +51,13 @@ object Bici {
         val hechos = ArrayList<Cambio>()
 
         /** Devuelve "start", "break", "finish" o null. */
+        fun ajustar(a: Ajustes) {
+            activo = a.on; n = a.n; lo = a.lo; hi = a.hi
+            if (estado == "fin" && num < n) estado = "recuperando"
+        }
+
         fun pulso(bpm: Int, now: Long): String? {
-            if (bpm <= 0) return null
+            if (bpm <= 0 || !activo) return null
             when (estado) {
                 "esperando", "recuperando" -> if (bpm <= lo) {
                     if (estado == "recuperando" && hechos.isNotEmpty()) {
@@ -72,8 +79,10 @@ object Bici {
         }
 
         fun json(now: Long): JSONObject = JSONObject().apply {
-            put("estado", estado); put("num", num); put("n", n); put("lo", lo); put("hi", hi)
-            put("ms", if (estado == "subiendo") now - desde else if (estado == "recuperando") now - finRec else 0)
+            put("estado", estado); put("num", num); put("n", n); put("lo", lo); put("hi", hi); put("activo", activo)
+            // Cronómetro del cambio: corre de «Start» a «Break» y se queda parado hasta el siguiente «Start».
+            put("ms", if (estado == "subiendo") now - desde else hechos.lastOrNull()?.subidaMs ?: 0)
+            put("rec", if (estado == "recuperando") now - finRec else 0)
             put("hechos", JSONArray().apply { hechos.forEach { put(JSONArray().apply { put(it.subidaMs / 1000); put(it.recMs / 1000) }) } })
         }
     }

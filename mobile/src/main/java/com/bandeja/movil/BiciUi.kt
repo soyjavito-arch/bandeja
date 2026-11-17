@@ -1,6 +1,10 @@
 package com.bandeja.movil
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,8 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,8 +45,10 @@ import com.bandeja.shared.Sync
 import com.bandeja.shared.Zonas
 import org.json.JSONObject
 
+/** Colores de las zonas: 1 gris, 2 azul, 3 verde, 4 amarillo, 5 rojo. */
 private fun colorZona(z: Int) = when (z) {
-    1 -> Gris; 2 -> Azul; 3 -> Verde; 4 -> Descanso; 5 -> Rojo; else -> Gris
+    1 -> Color(0xFF8E9A97); 2 -> Color(0xFF2F7FD8); 3 -> Color(0xFF2E9E5B); 4 -> Color(0xFFE0A100); 5 -> Color(0xFFD63B3B)
+    else -> Color(0xFFB5BEBB)
 }
 
 @Composable
@@ -86,10 +90,20 @@ private fun EnMarcha(v: Bici.Vivo) {
             Text(if (v.hr > 0) "${v.hr}" else "--", color = colorZona(z), fontSize = 84.sp, fontWeight = FontWeight.ExtraBold)
             Text(" ppm", color = Gris, fontSize = 20.sp, modifier = Modifier.padding(bottom = 18.dp))
         }
-        Text(if (z > 0) Zonas.nombre(z) else "", color = colorZona(z), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(Zonas.nombre(z), color = colorZona(z), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        // Leyenda de zonas: la de ahora, rellena.
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            (1..5).forEach { i ->
+                Box(Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
+                    .background(if (i == z) colorZona(i) else colorZona(i).copy(alpha = 0.18f)).padding(vertical = 3.dp),
+                    contentAlignment = Alignment.Center) {
+                    Text("Z$i ${Zonas.desde(i)}", color = if (i == z) Color.White else colorZona(i), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
         if (v.pausa) Text("EN PAUSA", color = Oro, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(8.dp))
-        Grafica(v.hrs, Modifier.fillMaxWidth().height(110.dp))
+        Grafica(v.hrs, Modifier.fillMaxWidth().height(130.dp))
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Dato("Media", "${v.media}")
@@ -98,10 +112,8 @@ private fun EnMarcha(v: Bici.Vivo) {
             v.km?.let { Dato("Km", "%.2f".format(it).replace('.', ',')) }
         }
     }
-    v.ritmo?.let { r ->
-        Spacer(Modifier.height(10.dp))
-        CajaRitmo(r)
-    }
+    Spacer(Modifier.height(10.dp))
+    CajaRitmo(v.ritmo)
     Spacer(Modifier.height(12.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Pildora(if (v.pausa) "▶ Seguir" else "❚❚ Pausa", Tarjeta2, Modifier.weight(1f)) { pausa() }
@@ -131,50 +143,76 @@ private fun Grafica(hrs: List<Int>, modifier: Modifier) {
     val aj = Bici.ajustes()
     Canvas(modifier) {
         val datos = hrs.filter { it > 0 }
-        if (datos.size < 2) return@Canvas
-        val lo = minOf(datos.min(), if (aj.on) aj.lo else 999) - 5
-        val hi = maxOf(datos.max(), if (aj.on) aj.hi else 0) + 5
+        // Siempre se ven las 5 zonas como franjas de color, con el pulso encima.
+        val lo = minOf(datos.minOrNull() ?: 999, Zonas.desde(1)) - 4
+        val hi = maxOf(datos.maxOrNull() ?: 0, Zonas.desde(6)) + 4
         fun y(b: Int) = size.height * (1f - (b - lo).toFloat() / (hi - lo).coerceAtLeast(1))
+        (1..5).forEach { z ->
+            val top = y(if (z == 5) hi else Zonas.desde(z + 1))
+            val bot = y(if (z == 1) lo else Zonas.desde(z))
+            drawRect(colorZona(z).copy(alpha = 0.16f), Offset(0f, top), androidx.compose.ui.geometry.Size(size.width, bot - top))
+        }
         if (aj.on) {
-            listOf(aj.lo to Azul, aj.hi to Rojo).forEach { (b, c) ->
-                drawLine(c.copy(alpha = 0.5f), Offset(0f, y(b)), Offset(size.width, y(b)), strokeWidth = 2f)
+            listOf(aj.lo, aj.hi).forEach { b ->
+                drawLine(Tinta.copy(alpha = 0.45f), Offset(0f, y(b)), Offset(size.width, y(b)), strokeWidth = 2f,
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(12f, 8f)))
             }
         }
-        val p = Path()
-        datos.forEachIndexed { i, b ->
-            val x = size.width * i / (datos.size - 1)
-            if (i == 0) p.moveTo(x, y(b)) else p.lineTo(x, y(b))
+        if (datos.size < 2) return@Canvas
+        // Cada tramo de la línea va del color de su zona.
+        for (i in 1 until datos.size) {
+            val x0 = size.width * (i - 1) / (datos.size - 1)
+            val x1 = size.width * i / (datos.size - 1)
+            drawLine(colorZona(Zonas.zona(datos[i])), Offset(x0, y(datos[i - 1])), Offset(x1, y(datos[i])), strokeWidth = 6f,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round)
         }
-        drawPath(p, Descanso, style = Stroke(width = 5f))
     }
 }
 
-/** Recuadro de los cambios de ritmo: en qué cambio vas y el tiempo de cada uno. */
+/**
+ * Cambios de ritmo en plena bici: se encienden, se ajustan y se ven aquí.
+ * El cronómetro arranca al bajar a «Start», se para al llegar a «Break» y vuelve a arrancar en el siguiente «Start».
+ */
 @Composable
-private fun CajaRitmo(r: JSONObject) {
-    val estado = r.optString("estado")
-    val n = r.optInt("n"); val num = r.optInt("num")
-    val ms = r.optLong("ms")
+private fun CajaRitmo(r: JSONObject?) {
+    var aj by remember { mutableStateOf(Bici.ajustes()) }
+    fun set(n: Bici.Ajustes) { aj = n; Bici.guardar(n) }
+    val estado = r?.optString("estado") ?: "esperando"
+    val num = r?.optInt("num") ?: 0
+    val ms = r?.optLong("ms") ?: 0L
     Caja(color = Tarjeta2) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Cambios de ritmo", color = Tinta, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.weight(1f))
-            Text("${r.optInt("lo")} → ${r.optInt("hi")} ppm", color = Gris, fontSize = 14.sp)
+            Text("Cambios de ritmo", color = Tinta, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Switch(checked = aj.on, onCheckedChange = { set(aj.copy(on = it)) })
         }
-        val (txt, color) = when (estado) {
-            "esperando" -> "Baja a ${r.optInt("lo")} para empezar" to Gris
-            "subiendo" -> "Cambio $num de $n · ¡sube!  ${Fechas.mmss(ms / 1000)}" to Naranja
-            "recuperando" -> "Recuperando · ${Fechas.mmss(ms / 1000)}" to Azul
-            else -> "¡Hecho! $n cambios" to Verde
-        }
-        Text(txt, color = color, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(vertical = 6.dp))
-        val hechos = r.optJSONArray("hechos")
-        for (i in 0 until (hechos?.length() ?: 0)) {
-            val h = hechos!!.optJSONArray(i) ?: continue
-            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
-                Text("${i + 1}", color = Gris, fontSize = 16.sp, modifier = Modifier.width(28.dp))
-                Text("subida ${Fechas.mmss(h.optLong(0))}", color = Tinta, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(if (h.optLong(1) > 0) "recup. ${Fechas.mmss(h.optLong(1))}" else "", color = Gris, fontSize = 16.sp)
+        if (aj.on) {
+            val corriendo = estado == "subiendo"
+            val (txt, color) = when (estado) {
+                "esperando" -> "Baja a ${aj.lo} para empezar" to Gris
+                "subiendo" -> "¡Sube! Break a ${aj.hi}" to Naranja
+                "recuperando" -> "Recupera · Start a ${aj.lo}" to Azul
+                else -> "¡Hecho! ${aj.n} cambios" to Verde
+            }
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(if (num > 0) "CAMBIO $num DE ${aj.n}" else "CAMBIO 1 DE ${aj.n}", color = Gris, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(txt, color = color, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+                Text(Fechas.mmss(ms / 1000), color = if (corriendo) Naranja else Gris, fontSize = 48.sp,
+                    fontFamily = Barlow, fontWeight = FontWeight.Bold)
+            }
+            Fila("Número de cambios", "${aj.n}", { set(aj.copy(n = (aj.n - 1).coerceAtLeast(1))) }, { set(aj.copy(n = (aj.n + 1).coerceAtMost(30))) })
+            Fila("«Start» al bajar a", "${aj.lo}", { set(aj.copy(lo = (aj.lo - 1).coerceAtLeast(60))) }, { set(aj.copy(lo = (aj.lo + 1).coerceAtMost(aj.hi - 5))) })
+            Fila("«Break» al llegar a", "${aj.hi}", { set(aj.copy(hi = (aj.hi - 1).coerceAtLeast(aj.lo + 5))) }, { set(aj.copy(hi = (aj.hi + 1).coerceAtMost(210))) })
+            Text("El último dice «Finish». 🔊 Lo dice el móvil; el reloj solo vibra.", color = Gris, fontSize = 12.sp)
+            val hechos = r?.optJSONArray("hechos")
+            for (i in 0 until (hechos?.length() ?: 0)) {
+                val h = hechos!!.optJSONArray(i) ?: continue
+                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                    Text("${i + 1}", color = Gris, fontSize = 16.sp, modifier = Modifier.width(28.dp))
+                    Text("subida ${Fechas.mmss(h.optLong(0))}", color = Tinta, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text(if (h.optLong(1) > 0) "recup. ${Fechas.mmss(h.optLong(1))}" else "", color = Gris, fontSize = 16.sp)
+                }
             }
         }
     }
@@ -194,19 +232,8 @@ private fun Preparar() {
             Switch(checked = aj.gps, onCheckedChange = { set(aj.copy(gps = it)) })
         }
     }
-    Spacer(Modifier.height(10.dp))
-    Caja {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Cambios de ritmo", color = Tinta, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Switch(checked = aj.on, onCheckedChange = { set(aj.copy(on = it)) })
-        }
-        if (aj.on) {
-            Fila("Número de cambios", "${aj.n}", { set(aj.copy(n = (aj.n - 1).coerceAtLeast(1))) }, { set(aj.copy(n = (aj.n + 1).coerceAtMost(30))) })
-            Fila("«Start» al bajar a", "${aj.lo}", { set(aj.copy(lo = (aj.lo - 1).coerceAtLeast(60))) }, { set(aj.copy(lo = (aj.lo + 1).coerceAtMost(aj.hi - 5))) })
-            Fila("«Break» al llegar a", "${aj.hi}", { set(aj.copy(hi = (aj.hi - 1).coerceAtLeast(aj.lo + 5))) }, { set(aj.copy(hi = (aj.hi + 1).coerceAtMost(210))) })
-            Text("El último dice «Finish». 🔊 Lo dice el móvil; el reloj solo vibra.", color = Gris, fontSize = 12.sp)
-        }
-    }
+    Text("Los cambios de ritmo se encienden y ajustan durante la bici, en la parte de abajo.", color = Gris, fontSize = 12.sp,
+        modifier = Modifier.padding(top = 6.dp))
     Spacer(Modifier.height(12.dp))
     val ctx = LocalContext.current
     var conPolar by remember { mutableStateOf(true) }

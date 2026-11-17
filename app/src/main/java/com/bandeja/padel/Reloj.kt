@@ -601,6 +601,12 @@ private fun Ajuste(titulo: String, valor: String, onMenos: () -> Unit, onMas: ()
     }
 }
 
+/** Colores de las zonas (iguales que en el móvil, algo más claros para fondo negro). */
+private fun colorZonaReloj(z: Int) = when (z) {
+    1 -> Color(0xFFB8C2BF); 2 -> Color(0xFF5DA3F0); 3 -> Color(0xFF4CC27E); 4 -> Color(0xFFF2B53A); 5 -> Color(0xFFFF5A5A)
+    else -> Color(0xFF8A9592)
+}
+
 @Composable
 private fun BiciEnMarcha(v: JSONObject?, onPausa: () -> Unit, onParar: () -> Unit) {
     val now = ahora()
@@ -642,20 +648,20 @@ private fun BiciEnMarcha(v: JSONObject?, onPausa: () -> Unit, onParar: () -> Uni
             val gps = v != null && !v.isNull("km") && v.has("km")
             Text((if (gps) "EXTERIOR" else "SPINNING") + " · " + if (polar) "❤️ POLAR" else "⌚ RELOJ",
                 fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AzulBici)
-            Text("♥" + (if (hr > 0) hr else "--"), fontSize = 44.sp, fontWeight = FontWeight.Bold, color = Rojo)
-            Text(Zonas.nombre(Zonas.zona(hr)).substringBefore(" ·"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VerdeTxt)
+            Text("♥" + (if (hr > 0) hr else "--"), fontSize = 44.sp, fontWeight = FontWeight.Bold, color = colorZonaReloj(Zonas.zona(hr)))
+            Text(Zonas.nombre(Zonas.zona(hr)).substringBefore(" ·"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colorZonaReloj(Zonas.zona(hr)))
             if (controles) {
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Pastilla(if (v?.optBoolean("pausa") == true) "▶ Seguir" else "❚❚ Pausa", Boton, onPausa)
                     Pastilla(if (confirmar) "¿Seguro?" else "■ Fin", Color(0xFFC0392B), { if (confirmar) onParar() else confirmar = true })
                 }
-            } else if (ritmo != null) {
+            } else if (ritmo != null && ritmo.optBoolean("activo", true)) {
                 val ms = ritmo.optLong("ms") / 1000
                 val txt = when (estado) {
                     "esperando" -> "Start al bajar a ${ritmo.optInt("lo")}"
                     "subiendo" -> "▲ $num DE $n · ${Fechas.mmss(ms)}"
-                    "recuperando" -> "Recupera · ${Fechas.mmss(ms)}"
+                    "recuperando" -> "■ $num · ${Fechas.mmss(ms)} · Start a ${ritmo.optInt("lo")}"
                     else -> "✓ $n cambios hechos"
                 }
                 Text(txt, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (estado == "subiendo") NaranjaTxt else Claro)

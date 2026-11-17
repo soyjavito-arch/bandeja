@@ -278,7 +278,8 @@ class EntrenoService : Service() {
         var km = 0.0
         var kmh: Double? = null
         var ultimaPos: Location? = null
-        val ritmo = if (aj.on) Bici.Ritmo(aj.n, aj.lo, aj.hi) else null
+        // Siempre existe; se enciende/apaga y ajusta en plena bici (también desde el móvil).
+        val ritmo = Bici.Ritmo(aj.n, aj.lo, aj.hi).apply { activo = aj.on }
         var polar: PolarBle? = null
         var lm: LocationManager? = null
         var ultimoSeg = -1L
@@ -327,6 +328,7 @@ class EntrenoService : Service() {
                 }
             }
             val hr = if (polarVivo) hrPolar else Pulsometro.bpm.value
+            if (tickN % 2 == 0L) ritmo.ajustar(Bici.ajustes())
             val s = seg(now)
             if (!pausa && hr > 0 && s != ultimoSeg) {
                 ultimoSeg = s
@@ -335,7 +337,7 @@ class EntrenoService : Service() {
                 kcal += Kcal.porMinuto(hr) / 60.0
                 if (s % 10 == 0L) muestras.put(JSONArray().apply { put(s); put(hr) })
                 if (s % 5 == 0L) { hrs.addLast(hr); while (hrs.size > 72) hrs.removeFirst() }
-                ritmo?.pulso(hr, now)?.let { ev ->
+                ritmo.pulso(hr, now)?.let { ev ->
                     when (ev) {
                         "start" -> { Avisos.vibrar(this@EntrenoService, Avisos.START) }
                         "break" -> { Avisos.vibrar(this@EntrenoService, Avisos.BREAK) }
@@ -361,7 +363,7 @@ class EntrenoService : Service() {
                 put("hr", hr); put("fuente", fuente)
                 put("media", if (n > 0) (suma / n).toInt() else 0); put("max", max); put("kcal", kcal.toInt())
                 put("km", if (aj.gps) km else JSONObject.NULL); put("kmh", if (aj.gps) (kmh ?: 0.0) else JSONObject.NULL)
-                put("ritmo", ritmo?.json(now) ?: JSONObject.NULL)
+                put("ritmo", ritmo.json(now))
                 put("hrs", JSONArray(hrs.toList()))
                 put("t", now)
             }
@@ -382,7 +384,7 @@ class EntrenoService : Service() {
                     put("hr", muestras)
                     put("src", fuente)
                     put("modo", if (aj.gps) "exterior" else "spinning")
-                    ritmo?.let { r ->
+                    ritmo.takeIf { it.hechos.isNotEmpty() }?.let { r ->
                         put("cambios", JSONArray().apply { r.hechos.forEach { put(JSONArray().apply { put(it.subidaMs / 1000); put(it.recMs / 1000) }) } })
                         put("cambiosCfg", JSONObject().apply { put("n", r.n); put("lo", r.lo); put("hi", r.hi) })
                     }
