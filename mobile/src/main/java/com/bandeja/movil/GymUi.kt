@@ -262,15 +262,15 @@ private fun Tabla(dia: Dia, ej: Ejercicio, ses: Gym.Sesion, now: Long) {
     val conDescanso = ej.descansoSeg > 0
     Caja {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Spacer(Modifier.width(18.dp))
+            Spacer(Modifier.width(16.dp))
             if (ej.conPeso) { Cab("Reps", Modifier.weight(1f)); Cab("Kg", Modifier.weight(1f)) } else Cab("Tiempo", Modifier.weight(2f))
-            if (conDescanso) Cab("Descanso", Modifier.width(62.dp))
-            Cab("Serie", Modifier.width(84.dp))
+            if (conDescanso) Cab("Desc.", Modifier.width(54.dp))
+            Cab("Serie", Modifier.width(78.dp))
         }
         for (i in 0 until ej.numSeries) {
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("${i + 1}", color = c, fontSize = 18.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, modifier = Modifier.width(14.dp))
+                Text("${i + 1}", color = c, fontSize = 18.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, modifier = Modifier.width(12.dp))
                 if (ej.conPeso) {
                     val (r, kg) = vals.getOrElse(i) { null to null }
                     MiniPaso("${r ?: "—"}", Modifier.weight(1f),
@@ -289,17 +289,17 @@ private fun Tabla(dia: Dia, ej: Ejercicio, ses: Gym.Sesion, now: Long) {
                 if (conDescanso) {
                     val de = t?.takeIf { it.tipo == "descanso" && it.key == key && it.serie == i }
                     Celda(if (de != null) Fechas.mmss((de.restanteMs(now) + 999) / 1000) else Fechas.mmss(ej.descansoSeg.toLong()),
-                        Modifier.width(62.dp), c, lleno = de != null) {
+                        Modifier.width(54.dp), c, lleno = de != null) {
                         if (de != null) Gym.pausar() else Gym.empezarDescanso(dia, ej, i)
                     }
                 }
                 val hecha = i in hechas
                 Box(
-                    Modifier.width(84.dp).height(38.dp).clip(RoundedCornerShape(6.dp)).background(if (hecha) Verde else Tarjeta)
+                    Modifier.width(78.dp).height(40.dp).clip(RoundedCornerShape(6.dp)).background(if (hecha) Verde else Tarjeta)
                         .border(1.dp, if (hecha) Verde else Linea, RoundedCornerShape(6.dp)).clickable { Gym.marcar(dia, ej, i, !hecha) },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(if (hecha) "Terminada" else "Pendiente", color = if (hecha) Color.White else Gris, fontSize = 17.sp,
+                    Text(if (hecha) "Terminada" else "Pendiente", color = if (hecha) Color.White else Gris, fontSize = 16.sp,
                         fontFamily = Barlow, fontWeight = FontWeight.SemiBold)
                 }
             }
@@ -316,18 +316,21 @@ private fun Cab(t: String, modifier: Modifier) {
     Text(t.uppercase(), color = Gris, fontSize = 13.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, modifier = modifier)
 }
 
+/** Casilla de reps o kg: la mitad izquierda resta y la derecha suma; el número siempre entero en el centro. */
 @Composable
 private fun MiniPaso(valor: String, modifier: Modifier, onMenos: () -> Unit, onMas: () -> Unit) {
     val forma = RoundedCornerShape(6.dp)
-    Row(modifier.height(38.dp).clip(forma).background(Fondo).border(1.dp, Linea, forma), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(28.dp).fillMaxHeight().clickable(onClick = onMenos), contentAlignment = Alignment.Center) {
-            Text("−", color = Gris, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Box(modifier.height(40.dp).clip(forma).background(Fondo).border(1.dp, Linea, forma)) {
+        Row(Modifier.fillMaxSize()) {
+            Box(Modifier.weight(1f).fillMaxHeight().clickable(onClick = onMenos).padding(start = 6.dp), contentAlignment = Alignment.CenterStart) {
+                Text("−", color = Gris, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+            Box(Modifier.weight(1f).fillMaxHeight().clickable(onClick = onMas).padding(end = 6.dp), contentAlignment = Alignment.CenterEnd) {
+                Text("+", color = Gris, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
         }
-        Text(valor, color = Tinta, fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, maxLines = 1,
-            textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-        Box(Modifier.width(28.dp).fillMaxHeight().clickable(onClick = onMas), contentAlignment = Alignment.Center) {
-            Text("+", color = Gris, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        }
+        Text(valor, color = Tinta, fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false,
+            modifier = Modifier.align(Alignment.Center))
     }
 }
 
