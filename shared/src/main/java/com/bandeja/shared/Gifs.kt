@@ -16,12 +16,12 @@ object Gifs {
     fun existe(context: Context, clave: String): Boolean =
         runCatching { context.assets.open("gif/$clave.gif").close(); true }.getOrDefault(false)
 
-    /** Pone el GIF en un ImageView y lo arranca. */
-    fun poner(view: ImageView, clave: String) {
+    /** Pone el GIF en un ImageView y lo arranca (o lo deja quieto en la primera imagen si [fijo]). */
+    fun poner(view: ImageView, clave: String, fijo: Boolean = false) {
         if (view.tag == clave) return
         view.tag = clave
         val d = cargar(view.context, clave)
         view.setImageDrawable(d)
-        (d as? AnimatedImageDrawable)?.apply { repeatCount = AnimatedImageDrawable.REPEAT_INFINITE; start() }
+        if (!fijo) (d as? AnimatedImageDrawable)?.apply { repeatCount = AnimatedImageDrawable.REPEAT_INFINITE; start() }
     }
 }

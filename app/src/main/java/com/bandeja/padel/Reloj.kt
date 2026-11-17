@@ -63,6 +63,16 @@ import com.bandeja.shared.Zonas
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 
+// Letra de la web
+private val Barlow = androidx.compose.ui.text.font.FontFamily(
+    androidx.compose.ui.text.font.Font(R.font.barlow_semibold, FontWeight.SemiBold),
+    androidx.compose.ui.text.font.Font(R.font.barlow_bold, FontWeight.Bold),
+)
+
+// Colores de cada entreno (los mismos que en el móvil)
+private fun colorDia(id: String?) = when (id) { "martes" -> Color(0xFF2B5C9E); "jueves" -> Color(0xFFB4531C); else -> Color(0xFF7A3F9E) }
+private fun colorDiaTxt(id: String?) = when (id) { "martes" -> Color(0xFF7AA6E6); "jueves" -> Color(0xFFF08A4B); else -> Color(0xFFC08AE6) }
+
 // Colores del reloj
 private val Naranja = Color(0xFFC25B1A)
 private val NaranjaTxt = Color(0xFFFF9A4D)
@@ -90,16 +100,16 @@ fun ahora(): Long {
 
 @Composable
 private fun Hora(now: Long, size: Int = 17) {
-    Text(Fechas.hora(now), fontSize = size.sp, fontWeight = FontWeight.Bold, color = Color.White)
+    Text(Fechas.hora(now), fontSize = (size + 4).sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Color.White)
 }
 
 /** Fila de abajo: tiempo de sesión, pulso y calorías. */
 @Composable
 private fun Datos(tiempo: String, hr: Int, kcal: Int?) {
     Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(tiempo, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        Text("♥" + (if (hr > 0) hr else "--"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Rojo)
-        if (kcal != null) Text("🔥$kcal", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NaranjaTxt)
+        Text(tiempo, fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Color.White)
+        Text("♥" + (if (hr > 0) hr else "--"), fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Rojo)
+        if (kcal != null) Text("🔥$kcal", fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = NaranjaTxt)
     }
 }
 
@@ -121,7 +131,7 @@ private fun Pastilla(texto: String, color: Color, onClick: () -> Unit, txt: Colo
 fun GifView(clave: String, modifier: Modifier) {
     AndroidView(
         factory = { ctx -> ImageView(ctx).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setBackgroundColor(android.graphics.Color.WHITE) } },
-        update = { Gifs.poner(it, clave) },
+        update = { Gifs.poner(it, clave, fijo = true) },
         modifier = modifier,
     )
 }
@@ -137,20 +147,21 @@ fun InicioReloj(onPadel: () -> Unit, onGym: () -> Unit, onBici: () -> Unit) {
     val state = rememberScalingLazyListState()
     ScalingLazyColumn(Modifier.fillMaxSize().background(Color.Black), state = state) {
         item { Hora(now) }
+        item { Text("ENTRENAR Y PÁDEL", fontSize = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Color.White) }
         item {
             Chip(onClick = onPadel, label = { Text("🎾 Pádel", fontWeight = FontWeight.Bold) },
-                secondaryLabel = { Text("Marcador") }, colors = ChipDefaults.primaryChipColors(backgroundColor = Azul),
+                secondaryLabel = { Text("Marcador") }, colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF2E7D4F)),
                 modifier = Modifier.fillMaxWidth())
         }
         item {
             Chip(onClick = onGym, label = { Text("🏋️ Gym", fontWeight = FontWeight.Bold) },
                 secondaryLabel = { Text("Empuje · Pierna · Tirón") },
-                colors = ChipDefaults.primaryChipColors(backgroundColor = Naranja), modifier = Modifier.fillMaxWidth())
+                colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF2B5C9E)), modifier = Modifier.fillMaxWidth())
         }
         item {
             Chip(onClick = onBici, label = { Text("🚲 Bici", fontWeight = FontWeight.Bold) },
                 secondaryLabel = { Text(if (bici) "En marcha" else "Spinning · Polar H10") },
-                colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF2F6FB0)), modifier = Modifier.fillMaxWidth())
+                colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFFB4531C)), modifier = Modifier.fillMaxWidth())
         }
         item {
             Text(if (conectado) "● conectado con el móvil" else "○ sin móvil (se guarda igual)", fontSize = 11.sp,
@@ -253,9 +264,10 @@ private fun ElegirDia(now: Long, onDia: (String) -> Unit) {
     val hechos = Gym.hechosCiclo()
     ScalingLazyColumn(Modifier.fillMaxSize()) {
         item { Hora(now) }
+        item { Text("HECHOS ${hechos.size} DE ${Rutina.dias.size}", fontSize = 15.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Gris) }
         Rutina.dias.forEach { d ->
             val hecho = d.id in hechos
-            val c = when (d.id) { "martes" -> Color(0xFF2B5C9E); "jueves" -> Color(0xFFB4531C); else -> Color(0xFF7A3F9E) }
+            val c = colorDia(d.id)
             item {
                 Chip(onClick = { onDia(d.id) },
                     label = { Text((if (hecho) "✓ " else "") + d.tag, fontWeight = FontWeight.Bold) },
@@ -273,7 +285,8 @@ private fun ListaDia(dia: Dia, ses: Gym.Sesion, now: Long, onEjercicio: (Int) ->
     val actual = Gym.actual(dia)
     ScalingLazyColumn(Modifier.fillMaxSize()) {
         item { Hora(now) }
-        item { Text(dia.tag, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Gris) }
+        item { Text(dia.tag.uppercase(), fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id)) }
+        if (ses.inicio > 0) item { Text(Fechas.hms(ses.duracionMs(now) / 1000), fontSize = 32.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = Color.White) }
         dia.ejercicios.forEachIndexed { i, e ->
             item {
                 val h = ses.hechas(Gym.clave(dia.id, e)).size
@@ -285,12 +298,14 @@ private fun ListaDia(dia: Dia, ses: Gym.Sesion, now: Long, onEjercicio: (Int) ->
                 }
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Fila)
-                        .then(if (i == actual && ses.inicio > 0) Modifier.border(1.5.dp, Naranja, RoundedCornerShape(14.dp)) else Modifier)
-                        .clickable { onEjercicio(i) }.padding(horizontal = 12.dp, vertical = 7.dp),
+                        .then(if (i == actual && ses.inicio > 0) Modifier.border(1.5.dp, colorDia(dia.id), RoundedCornerShape(14.dp)) else Modifier)
+                        .clickable { onEjercicio(i) }.padding(start = 6.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    GifView(e.clave, Modifier.size(24.dp).clip(RoundedCornerShape(5.dp)))
+                    Spacer(Modifier.width(8.dp))
                     Text(e.nombre, fontSize = 13.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    Text(txt, fontSize = 13.sp, color = if (txt == "✓") VerdeTxt else Claro, fontWeight = FontWeight.Bold)
+                    Text(txt, fontSize = 15.sp, fontFamily = Barlow, color = if (txt == "✓") VerdeTxt else Claro, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -330,8 +345,11 @@ private fun Serie(
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(top = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Hora(now)
-            Text(ej.nombre, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1,
-                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 26.dp).clickable(onClick = onLista))
+            Row(Modifier.padding(horizontal = 30.dp).clickable(onClick = onLista), verticalAlignment = Alignment.CenterVertically) {
+                GifView(ej.clave, Modifier.size(36.dp).clip(RoundedCornerShape(7.dp)))
+                Spacer(Modifier.width(6.dp))
+                Text(ej.nombre, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             when {
                 ej.numSeries == 0 -> {
                     Text(ej.series, fontSize = 14.sp, color = Claro, fontWeight = FontWeight.Bold)
@@ -340,7 +358,7 @@ private fun Serie(
                     Pastilla("Siguiente", Verde, onSiguiente)
                 }
                 ej.porTiempo -> {
-                    Text("serie ${serie + 1} de ${ej.numSeries}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Claro)
+                    Text("SERIE ${serie + 1} DE ${ej.numSeries}", fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id))
                     if (trabajo != null) {
                         Text(Fechas.mmss((trabajo.restanteMs(now) + 999) / 1000), fontSize = 40.sp, fontWeight = FontWeight.Bold, color = NaranjaTxt)
                         Pastilla("Hecha ya", Verde, onSaltarTrabajo)
@@ -350,22 +368,22 @@ private fun Serie(
                     }
                 }
                 else -> {
-                    Text("serie ${serie + 1} de ${ej.numSeries}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Claro)
+                    Text("SERIE ${serie + 1} DE ${ej.numSeries}", fontSize = 20.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id))
                     val (r, w) = vals.getOrElse(serie) { null to null }
                     Fila(r?.toString() ?: "—", "reps", Color.White,
                         onMenos = { Gym.cambiar(dia.id, ej, serie, ((r ?: 1) - 1).coerceAtLeast(1), w) },
                         onMas = { Gym.cambiar(dia.id, ej, serie, ((r ?: 0) + 1).coerceAtMost(30), w) })
-                    Fila(Kilos.texto(w), "kg", NaranjaTxt,
+                    Fila(Kilos.texto(w), "kg", Color.White,
                         onMenos = { Gym.cambiar(dia.id, ej, serie, r, Kilos.bajar(w)) },
                         onMas = { Gym.cambiar(dia.id, ej, serie, r, Kilos.subir(w)) })
                     Spacer(Modifier.height(3.dp))
-                    Pastilla("Serie hecha", Verde, { onHecha(serie) })
+                    Pastilla("✓ Terminada", Verde, { onHecha(serie) })
                 }
             }
         }
-        Text("‹", fontSize = 26.sp, color = NaranjaTxt, fontWeight = FontWeight.Bold,
+        Text("‹", fontSize = 26.sp, color = Claro, fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterStart).padding(start = 6.dp).clickable(onClick = onAnterior).padding(6.dp))
-        Text("›", fontSize = 26.sp, color = NaranjaTxt, fontWeight = FontWeight.Bold,
+        Text("›", fontSize = 26.sp, color = Claro, fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterEnd).padding(end = 6.dp).clickable(onClick = onSiguiente).padding(6.dp))
         Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)) { Datos(tiempo, hr, kcal) }
     }
@@ -376,7 +394,7 @@ private fun Fila(valor: String, unidad: String, color: Color, onMenos: () -> Uni
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Redondo("−", onMenos, 28)
         Row(Modifier.width(72.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
-            Text(valor, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = color)
+            Text(valor, fontSize = 32.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = color)
             Text(" $unidad", fontSize = 10.sp, color = Gris, modifier = Modifier.padding(bottom = 4.dp))
         }
         Redondo("+", onMas, 28)
@@ -394,14 +412,15 @@ private fun Descanso(
         Canvas(Modifier.fillMaxSize().padding(4.dp)) {
             val st = Stroke(width = 9.dp.toPx(), cap = StrokeCap.Round)
             drawArc(Boton, 0f, 360f, false, style = st)
-            drawArc(Naranja, -90f, 360f * frac, false, style = st)
+            drawArc(Color(0xFFE07B1F), -90f, 360f * frac, false, style = st)
         }
         Column(Modifier.fillMaxSize().padding(top = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Hora(now, 16)
-            Text(if (pausa) "EN PAUSA" else "DESCANSO", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NaranjaTxt)
-            Text(nombre, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1,
-                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 26.dp))
-            Text(Fechas.mmss((restanteMs + 999) / 1000), fontSize = 40.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text((if (pausa) "EN PAUSA · " else "DESCANSO · ") + nombre.uppercase(), fontSize = 15.sp, fontFamily = Barlow,
+                fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.8f), maxLines = 1,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 30.dp))
+            Text(Fechas.mmss((restanteMs + 999) / 1000), fontSize = 76.sp, lineHeight = 72.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold,
+                color = Color.White.copy(alpha = if (pausa) 0.55f else 1f))
             if (controles) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Redondo(if (pausa) "▶" else "❚❚", onPausa, 36)
@@ -485,7 +504,7 @@ private fun AjustesBici(onEmpezar: (polar: Boolean) -> Unit, onSalir: () -> Unit
         item {
             Chip(onClick = { onEmpezar(true) }, label = { Text("▶ Empezar con Polar", fontWeight = FontWeight.Bold) },
                 secondaryLabel = { Text("H10 ${Bici.POLAR_ID}") },
-                colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF2F6FB0)), modifier = Modifier.fillMaxWidth())
+                colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFFB4531C)), modifier = Modifier.fillMaxWidth())
         }
         item {
             Chip(onClick = { onEmpezar(false) }, label = { Text("▶ Con el pulso del reloj") },
