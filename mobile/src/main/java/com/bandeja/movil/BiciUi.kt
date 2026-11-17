@@ -284,6 +284,16 @@ private fun Fila(t: String, v: String, menos: () -> Unit, mas: () -> Unit) {
 @Composable
 private fun Historial() {
     val claves = Docs.keys("bici-").sortedDescending()
+    var borrar by remember { mutableStateOf<String?>(null) }
+    borrar?.let { k ->
+        AlertDialog(
+            onDismissRequest = { borrar = null },
+            title = { Text("¿Borrar este entreno?") },
+            text = { Text("Se borra en el móvil y en el reloj.") },
+            confirmButton = { TextButton({ Docs.delete(k); borrar = null }) { Text("Borrar", color = Rojo) } },
+            dismissButton = { TextButton({ borrar = null }) { Text("Cancelar") } },
+        )
+    }
     if (claves.isEmpty()) return
     Text("Entrenos", color = Tinta, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
     claves.take(30).forEach { k ->
@@ -291,9 +301,11 @@ private fun Historial() {
         val ini = Fechas.desdeIso(d.optString("inicio")) ?: 0L
         Spacer(Modifier.height(6.dp))
         Caja {
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("${Fechas.corto(ini)} · ${Fechas.hora(ini)}", color = Gris, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 Text(if (d.optString("modo") == "exterior") "EXTERIOR" else "SPINNING", color = Naranja, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Spacer(Modifier.width(10.dp))
+                BotonRedondo("🗑", 36.dp) { borrar = k }
             }
             val partes = buildList {
                 add(Fechas.hms(d.optLong("dur")))
