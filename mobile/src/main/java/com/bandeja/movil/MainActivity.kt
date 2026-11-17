@@ -92,6 +92,7 @@ fun App() {
             "gym" -> { BackHandler { seccion = "inicio" }; GymTab(v, onInicio = { seccion = "inicio" }) }
             "padel" -> { BackHandler { seccion = "inicio" }; PadelTab(v, onInicio = { seccion = "inicio" }) }
             "bici" -> { BackHandler { seccion = "inicio" }; BiciTab(v, onInicio = { seccion = "inicio" }) }
+            "stats" -> { BackHandler { seccion = "inicio" }; StatsPantalla(v, onAtras = { seccion = "inicio" }) }
             else -> Inicio { seccion = it }
         }
     }
@@ -117,7 +118,10 @@ private fun Inicio(onElegir: (String) -> Unit) {
         }.getOrElse { "Ese archivo no es una copia de la app." }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Spacer(Modifier.height(30.dp))
+        // Arriba a la derecha: estadísticas (calendario con gym, pádel y bici).
+        androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            BotonRedondo("📈", 52.dp) { onElegir("stats") }
+        }
         Text("¿QUÉ TOCA HOY?", color = Tinta, fontSize = 36.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(10.dp))
         listOf(
