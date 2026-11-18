@@ -17,4 +17,6 @@ class BandejaApplication : Application() {
 /** Puente para órdenes que llegan del móvil. */
 object Ordenes {
     var padel: ((String) -> Unit)? = null
+    /** El móvil terminó la sesión de gym: cierra el Gym del reloj si está abierto. */
+    var cerrarGym: (() -> Unit)? = null
 }

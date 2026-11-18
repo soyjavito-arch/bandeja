@@ -65,6 +65,29 @@ class EntrenoService : Service() {
                 cmd.startsWith("start") -> bici(ctx, !cmd.endsWith("reloj"))
                 cmd == "pausa" -> biciPausa(ctx)
                 cmd == "parar" -> biciParar(ctx)
+                cmd == "gym:abrir" -> abrirGym(ctx)
+                cmd == "gym:cerrar" -> {
+                    Ordenes.cerrarGym?.invoke()
+                    ctx.getSystemService(NotificationManager::class.java).cancel(10)
+                }
+            }
+        }
+
+        /** El móvil pide abrir el Gym del reloj. Si Android no deja abrirlo solo, queda un aviso para tocarlo. */
+        private fun abrirGym(ctx: Context) {
+            val i = Intent(ctx, MainActivity::class.java).putExtra("abrirGym", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { ctx.startActivity(i) }
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            nm.createNotificationChannel(NotificationChannel("pulso", "Pulso al móvil", NotificationManager.IMPORTANCE_HIGH))
+            val pi = PendingIntent.getActivity(ctx, 4, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            runCatching {
+                nm.notify(10, Notification.Builder(ctx, "pulso")
+                    .setSmallIcon(R.drawable.ic_launcher_foreground)
+                    .setContentTitle("Gym")
+                    .setContentText("Toca para abrir")
+                    .setContentIntent(pi).setAutoCancel(true).setOnlyAlertOnce(true)
+                    .setCategory(Notification.CATEGORY_WORKOUT)
+                    .build())
             }
         }
 

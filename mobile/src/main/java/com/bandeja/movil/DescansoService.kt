@@ -56,7 +56,7 @@ class DescansoService : Service() {
 
     /** Cada segundo: pide el pulso al reloj y lo suma. Si la app del reloj está en Gym, mide y apunta ella. */
     private fun medir(s: Gym.Sesion, now: Long) {
-        if (com.bandeja.shared.Pulso.midiendoReloj()) return
+        if (com.bandeja.shared.Pulso.midiendoReloj() || RelojGym.modo(this) != "pulso") return
         if (now - ultimoPing > 10_000) { ultimoPing = now; com.bandeja.shared.Sync.enviar(com.bandeja.shared.Bici.CMD, "pulso:on") }
         cargar(s)
         val hr = BiciService.pulsoRelojReciente() ?: return
@@ -81,7 +81,6 @@ class DescansoService : Service() {
     }
 
     override fun onDestroy() {
-        if (ultimoPing > 0) runCatching { com.bandeja.shared.Sync.enviar(com.bandeja.shared.Bici.CMD, "pulso:off") }
         h.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
@@ -106,6 +105,7 @@ class DescansoService : Service() {
             Gym.tick(now)
             val s = Gym.sesion()
             if (s.inicio == 0L || s.fin > 0) {
+                RelojGym.cerrar() // el Gym del reloj se cierra y deja de mandar el pulso
                 if (s.fin > 0) {
                     registrar(s)
                     // Última serie de la rutina: "Finished!!" (solo si lo acabamos de ver pasar).

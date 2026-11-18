@@ -97,6 +97,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
         publicarVivo(forzar = true)
         pulsoAlMovil(intent)
+        abrirGymDesdeMovil(intent)
+        Ordenes.cerrarGym = { runOnUiThread { if (modo.value == "gym") finish() } }
         pedirPulsoFondo()
 
         setContent {
@@ -126,11 +128,21 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     override fun onDestroy() {
         super.onDestroy()
         Ordenes.padel = null
+        Ordenes.cerrarGym = null
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         pulsoAlMovil(intent)
+        abrirGymDesdeMovil(intent)
+    }
+
+    /** El móvil pidió abrir el Gym del reloj. */
+    private fun abrirGymDesdeMovil(i: android.content.Intent?) {
+        if (i?.getBooleanExtra("abrirGym", false) != true) return
+        i.removeExtra("abrirGym")
+        getSystemService(android.app.NotificationManager::class.java).cancel(10)
+        modo.value = "gym"
     }
 
     /** Se tocó el aviso «Bici en el móvil»: empieza a mandar el pulso. */

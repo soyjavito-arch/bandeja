@@ -58,6 +58,31 @@ fun GymTab(v: Int, onInicio: () -> Unit) {
     val ses = Gym.sesion()
     var diaId by rememberSaveable { mutableStateOf(ses.dia ?: Rutina.dias.first().id) }
     var ejIdx by rememberSaveable { mutableIntStateOf(-1) }
+    // Al entrar (sin sesión en marcha): cómo usar el reloj.
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var preguntar by rememberSaveable { mutableStateOf(ses.inicio == 0L || ses.fin > 0) }
+    // Salir del Gym del móvil sin sesión en marcha: el del reloj también se cierra.
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { Gym.sesion().let { if (it.inicio == 0L || it.fin > 0) RelojGym.cerrar() } }
+    }
+    if (preguntar) {
+        AlertDialog(
+            onDismissRequest = { RelojGym.elegir(ctx, "pulso"); preguntar = false },
+            title = { Text("Reloj", fontSize = 24.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    listOf(
+                        Triple("pulso", "♥  Solo pulsaciones", Azul),
+                        Triple("abrir", "⌚  Abrir también en el reloj", Verde),
+                        Triple("no", "Sin reloj", Tarjeta),
+                    ).forEach { (m, t, c) ->
+                        Pildora(t, c, Modifier.fillMaxWidth()) { RelojGym.elegir(ctx, m); preguntar = false }
+                    }
+                }
+            },
+            confirmButton = {},
+        )
+    }
     var stats by rememberSaveable { mutableStateOf(false) }
     val dia = Rutina.dia(diaId) ?: Rutina.dias.first()
     val now = ahora()
