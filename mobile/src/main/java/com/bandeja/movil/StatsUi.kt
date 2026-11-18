@@ -211,7 +211,9 @@ private fun Calendario(sel: String, onSel: (String) -> Unit) {
 @Composable
 private fun Progresion(diaId: String, ej: Ejercicio) {
     val hist = Docs.get(Gym.clave(diaId, ej))?.optJSONArray("hist")
-    val dias = (0 until (hist?.length() ?: 0)).mapNotNull { hist!!.optJSONObject(it) }.map { h ->
+    // Solo los días que cuentan como entrenados (un día quitado en el calendario no sale).
+    val validos = Gym.sesiones()[diaId]?.toSet() ?: emptySet()
+    val dias = (0 until (hist?.length() ?: 0)).mapNotNull { hist!!.optJSONObject(it) }.filter { it.optString("d") in validos }.map { h ->
         val s = h.optJSONArray("s")
         h.optString("d") to (0 until (s?.length() ?: 0)).map { i ->
             val r = s!!.optJSONArray(i)

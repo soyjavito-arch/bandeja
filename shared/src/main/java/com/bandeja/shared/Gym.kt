@@ -318,7 +318,7 @@ object Gym {
     fun resetearSesion() {
         val s = sesion()
         s.dia?.let { d ->
-            quitarSesion(d, s.fecha)
+            quitarSesion(d, s.fecha, borrarSeries = false)
             Docs.delete("gym-${s.fecha}-$d")
         }
         Docs.delete(LIVE)
@@ -384,12 +384,20 @@ object Gym {
     }
 
     /** Borra un día entrenado (si fue de prueba). */
-    fun quitarSesion(dia: String, fecha: String) {
+    fun quitarSesion(dia: String, fecha: String, borrarSeries: Boolean = true) {
         val ses = Docs.get("_sesiones") ?: return
         val a = ses.optJSONArray(dia) ?: return
         val list = (0 until a.length()).map { a.optString(it) }.filter { it != fecha }
         ses.put(dia, JSONArray(list))
         Docs.put("_sesiones", ses)
+        // También fuera de la progresión: se quitan las series apuntadas ese día.
+        if (borrarSeries) Rutina.dia(dia)?.ejercicios?.forEach { ej ->
+            val k = clave(dia, ej)
+            val doc = Docs.get(k) ?: return@forEach
+            val h = doc.optJSONArray("hist") ?: return@forEach
+            val resto = (0 until h.length()).mapNotNull { h.optJSONObject(it) }.filter { it.optString("d") != fecha }
+            if (resto.size != h.length()) { doc.put("hist", JSONArray(resto)); Docs.put(k, doc) }
+        }
     }
 
     /**
