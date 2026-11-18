@@ -8,7 +8,10 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.media.RingtoneManager
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.media.MediaPlayer
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -28,6 +31,7 @@ class DescansoService : Service() {
     private var avisado = ""
     private var ultimoTexto = ""
     private var n = 0L
+    private var visto: String? = null // último temporizador visto (para decir "Break"/"Start" al empezar)
 
     /** Sin el reloj, el móvil apunta el tiempo y unas kcal estimadas (pulso típico de gym, 110). */
     private fun registrar(s: Gym.Sesion) {
@@ -56,7 +60,11 @@ class DescansoService : Service() {
             Gym.tick(now)
             val s = Gym.sesion()
             if (s.inicio == 0L || s.fin > 0) {
-                if (s.fin > 0) registrar(s)
+                if (s.fin > 0) {
+                    registrar(s)
+                    // Última serie de la rutina: "Finished!!" (solo si lo acabamos de ver pasar).
+                    if (visto != null && now - s.fin < 5000) voz("finished", longArrayOf(0, 500, 150, 500, 150, 900))
+                }
                 stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return
             }
             if (++n % 15 == 0L) registrar(s)
@@ -73,9 +81,18 @@ class DescansoService : Service() {
                 else -> "Descanso · ${Fechas.mmss((t.restanteMs(now) + 999) / 1000)}" to nombre
             }
             val id = t?.let { "${it.key}-${it.serie}-${it.tipo}" } ?: ""
+            // Como en la web: "Break!!" al empezar el descanso, "Start!!" al acabarlo (o al empezar una serie
+            // por tiempo) y "Finished!!" si era la última serie del ejercicio.
+            if (visto != null && id != visto && t != null && !t.terminado(now)) {
+                if (t.tipo == "descanso") voz("break", longArrayOf(0, 400, 120, 400)) else voz("start", null)
+            }
+            visto = id
             if (t != null && t.tipo == "descanso" && t.terminado(now) && avisado != id) {
                 avisado = id
-                avisar()
+                val d = Rutina.dia(t.key.substringBefore('-'))
+                val ej = d?.ejercicios?.firstOrNull { Gym.clave(d.id, it) == t.key }
+                val ultima = ej != null && s.hechas(t.key).size >= ej.numSeries
+                voz(if (ultima) "finished" else "start", longArrayOf(0, 400, 150, 400, 150, 600))
             }
             if ("$titulo|$texto" != ultimoTexto) {
                 ultimoTexto = "$titulo|$texto"
@@ -85,13 +102,23 @@ class DescansoService : Service() {
         }
     }
 
-    private fun avisar() {
-        runCatching {
+    /** Voz grabada (la misma de la web) + vibración. Baja un momento la música, no la para. */
+    private fun voz(cual: String, vib: LongArray?) {
+        if (vib != null) runCatching {
             val v = (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
-            v.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 400, 150, 400, 150, 600), -1))
+            v.vibrate(VibrationEffect.createWaveform(vib, -1))
         }
         runCatching {
-            RingtoneManager.getRingtone(this, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))?.play()
+            val res = when (cual) { "break" -> R.raw.voz_break; "finished" -> R.raw.voz_finished; else -> R.raw.voz_start }
+            val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
+            val am = getSystemService(AudioManager::class.java)
+            val foco = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(attrs).build()
+            am.requestAudioFocus(foco)
+            MediaPlayer.create(this, res, attrs, am.generateAudioSessionId())?.apply {
+                setOnCompletionListener { it.release(); am.abandonAudioFocusRequest(foco) }
+                start()
+            } ?: am.abandonAudioFocusRequest(foco)
         }
     }
 
