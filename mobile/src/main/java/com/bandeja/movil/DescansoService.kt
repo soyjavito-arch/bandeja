@@ -149,6 +149,9 @@ class DescansoService : Service() {
         }
     }
 
+    // Se guarda aquí para que no se libere a medias (si no, baja la música pero no se oye nada).
+    private var reproductor: MediaPlayer? = null
+
     /** Voz grabada (la misma de la web) + vibración. Baja un momento la música, no la para. */
     private fun voz(cual: String, vib: LongArray?) {
         if (vib != null) runCatching {
@@ -157,15 +160,17 @@ class DescansoService : Service() {
         }
         runCatching {
             val res = when (cual) { "break" -> R.raw.voz_break; "finished" -> R.raw.voz_finished; else -> R.raw.voz_start }
-            val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
             val am = getSystemService(AudioManager::class.java)
             val foco = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(attrs).build()
             am.requestAudioFocus(foco)
-            MediaPlayer.create(this, res, attrs, am.generateAudioSessionId())?.apply {
-                setOnCompletionListener { it.release(); am.abandonAudioFocusRequest(foco) }
+            reproductor?.release()
+            reproductor = MediaPlayer.create(this, res, attrs, am.generateAudioSessionId())?.apply {
+                setOnCompletionListener { it.release(); if (reproductor === it) reproductor = null; am.abandonAudioFocusRequest(foco) }
                 start()
-            } ?: am.abandonAudioFocusRequest(foco)
+            }
+            if (reproductor == null) am.abandonAudioFocusRequest(foco)
         }
     }
 
