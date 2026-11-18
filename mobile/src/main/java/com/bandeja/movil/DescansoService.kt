@@ -33,11 +33,57 @@ class DescansoService : Service() {
     private var n = 0L
     private var visto: String? = null // último temporizador visto (para decir "Break"/"Start" al empezar)
 
-    /** Sin el reloj, el móvil apunta el tiempo y unas kcal estimadas (pulso típico de gym, 110). */
+    // Pulso del reloj en segundo plano (sin abrir su app): kcal, media y máximo de la sesión.
+    private var ultimoPing = 0L
+    private var medInicio = 0L
+    private var kcal = 0.0
+    private var suma = 0L
+    private var cuenta = 0L
+    private var maxHr = 0
+
+    private fun cargar(s: Gym.Sesion) {
+        if (medInicio == s.inicio) return
+        medInicio = s.inicio
+        val pr = getSharedPreferences("gym_movil", MODE_PRIVATE)
+        kcal = pr.getFloat("kcal_${s.inicio}", 0f).toDouble()
+        suma = pr.getLong("suma_${s.inicio}", 0L); cuenta = pr.getLong("n_${s.inicio}", 0L); maxHr = pr.getInt("max_${s.inicio}", 0)
+    }
+
+    private fun guardarMedida(s: Gym.Sesion) {
+        getSharedPreferences("gym_movil", MODE_PRIVATE).edit().putFloat("kcal_${s.inicio}", kcal.toFloat())
+            .putLong("suma_${s.inicio}", suma).putLong("n_${s.inicio}", cuenta).putInt("max_${s.inicio}", maxHr).apply()
+    }
+
+    /** Cada segundo: pide el pulso al reloj y lo suma. Si la app del reloj está en Gym, mide y apunta ella. */
+    private fun medir(s: Gym.Sesion, now: Long) {
+        if (com.bandeja.shared.Pulso.midiendoReloj()) return
+        if (now - ultimoPing > 10_000) { ultimoPing = now; com.bandeja.shared.Sync.enviar(com.bandeja.shared.Bici.CMD, "pulso:on") }
+        cargar(s)
+        val hr = BiciService.pulsoRelojReciente() ?: return
+        if (!s.pausada) {
+            kcal += com.bandeja.shared.Kcal.porMinuto(hr) / 60.0
+            suma += hr; cuenta++; if (hr > maxHr) maxHr = hr
+        }
+        com.bandeja.shared.Pulso.publicar(hr, kcal.toInt(), "movil")
+    }
+
+    /** Apunta la sesión para las estadísticas: con el pulso del reloj si lo hay; si no, kcal estimadas (pulso 110). */
     private fun registrar(s: Gym.Sesion) {
-        if (com.bandeja.shared.Pulso.leer() != null) return // el reloj mide de verdad: lo apunta él
+        if (com.bandeja.shared.Pulso.midiendoReloj()) return // la app del reloj mide de verdad: lo apunta ella
+        cargar(s)
+        if (cuenta > 0) {
+            guardarMedida(s)
+            Gym.registrar(s, kcal.toInt(), (suma / cuenta).toInt(), maxHr.takeIf { it > 0 }, false)
+            return
+        }
         val min = s.duracionMs(System.currentTimeMillis()) / 60000.0
         Gym.registrar(s, Math.round(com.bandeja.shared.Kcal.porMinuto(110) * min).toInt(), null, null, true)
+    }
+
+    override fun onDestroy() {
+        if (ultimoPing > 0) runCatching { com.bandeja.shared.Sync.enviar(com.bandeja.shared.Bici.CMD, "pulso:off") }
+        h.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -67,6 +113,7 @@ class DescansoService : Service() {
                 }
                 stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return
             }
+            medir(s, now)
             if (++n % 15 == 0L) registrar(s)
             val t = s.timer
             val nombre = t?.let { tt ->
@@ -133,11 +180,6 @@ class DescansoService : Service() {
             .setOnlyAlertOnce(true)
             .setContentIntent(pi)
             .build()
-    }
-
-    override fun onDestroy() {
-        h.removeCallbacksAndMessages(null)
-        super.onDestroy()
     }
 
     companion object {

@@ -136,7 +136,15 @@ object Bici {
 /** Pulso y calorías que publica el reloj durante el gym (cada pocos segundos). */
 object Pulso {
     const val DOC = "_pulso"
-    fun publicar(hr: Int, kcal: Int) = Docs.put(DOC, JSONObject().apply { put("hr", hr); put("kcal", kcal); put("t", System.currentTimeMillis()) })
+    /** src: "reloj" (la app del reloj en Gym) o "movil" (el móvil con el pulso que le manda el reloj en segundo plano). */
+    fun publicar(hr: Int, kcal: Int, src: String = "reloj") =
+        Docs.put(DOC, JSONObject().apply { put("hr", hr); put("kcal", kcal); put("t", System.currentTimeMillis()); put("src", src) })
+
+    /** El reloj está midiendo el gym con su app abierta (y lo apunta él). */
+    fun midiendoReloj(): Boolean {
+        val o = Docs.get(DOC) ?: return false
+        return System.currentTimeMillis() - o.optLong("t") <= 60_000 && o.optString("src", "reloj") == "reloj"
+    }
     fun leer(): Pair<Int, Int>? {
         val o = Docs.get(DOC) ?: return null
         if (System.currentTimeMillis() - o.optLong("t") > 60_000) return null

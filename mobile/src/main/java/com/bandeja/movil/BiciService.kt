@@ -56,6 +56,9 @@ class BiciService : Service() {
         @Volatile private var hrReloj = 0
         @Volatile private var tReloj = 0L
 
+        /** Último pulso del reloj si llegó hace menos de 5 s (también lo usa el gym). */
+        fun pulsoRelojReciente(): Int? = hrReloj.takeIf { it > 0 && System.currentTimeMillis() - tReloj < 5_000 }
+
         /** Pulso que manda el reloj (cada segundo). */
         fun pulsoReloj(bpm: Int) {
             if (bpm > 0) { hrReloj = bpm; tReloj = System.currentTimeMillis() }

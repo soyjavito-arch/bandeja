@@ -213,7 +213,7 @@ class EntrenoService : Service() {
         if (now - pingMovil > 30_000) { pararPulso(); return }
         val hr = Pulsometro.bpm.value
         if (hr > 0) com.bandeja.shared.Sync.enviar("/hr", hr.toString())
-        if (!gymActivo && grab == null && tickN % 5 == 0L) actualizar("Bici en el móvil", "Mandando pulso ♥ ${if (hr > 0) hr else "--"}")
+        if (!gymActivo && grab == null && tickN % 5 == 0L) actualizar("Pulso al móvil", "♥ ${if (hr > 0) hr else "--"}")
     }
 
     private fun pararPulso() {
