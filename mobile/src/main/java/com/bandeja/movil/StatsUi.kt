@@ -419,8 +419,11 @@ private data class Actividad(val tipo: String, val fecha: String, val dur: Long,
 private fun actividades(): List<Actividad> {
     val l = ArrayList<Actividad>()
     fun num(d: org.json.JSONObject, k: String) = if (d.isNull(k) || !d.has(k)) null else d.optInt(k)
+    // Solo cuenta un gym si ese día se hizo alguna serie de esa rutina (abrir otra rutina sin hacer nada no suma).
+    val hechas = Gym.sesiones()
     Docs.keys("gym-").forEach { k ->
         val d = Docs.get(k) ?: return@forEach
+        if (d.optString("fecha") !in (hechas[d.optString("dia")] ?: emptyList())) return@forEach
         l += Actividad("gym", d.optString("fecha"), d.optLong("dur"), d.optInt("kcal"), num(d, "pm"), num(d, "pmax"), d.optBoolean("kcalEst"))
     }
     Docs.keys("padel-").forEach { k ->
