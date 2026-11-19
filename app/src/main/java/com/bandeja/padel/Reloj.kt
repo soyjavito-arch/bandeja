@@ -80,6 +80,9 @@ private val Naranja = Color(0xFFC25B1A)
 private val NaranjaTxt = Color(0xFFFF9A4D)
 private val Verde = Color(0xFF1D7A46)
 private val VerdeTxt = Color(0xFF4FE3A3)
+
+/** En el reloj, el nombre sin lo que va entre paréntesis: «Prensa 45° (roja)» → «Prensa 45°». */
+private fun corto(nombre: String) = nombre.substringBefore(" (").substringBefore("(").trim()
 private val Rojo = Color(0xFFFF6B72)
 private val Gris = Color(0xFF8A8F98)
 private val Claro = Color(0xFFC4C8CE)
@@ -260,8 +263,8 @@ fun GymReloj(onSalir: () -> Unit) {
                 val sig = Gym.primeraPendiente(tdia, tej)
                 val todas = ses.hechas(t.key).size >= tej.numSeries
                 val luego = if (!todas && sig in vals.indices) "Luego: serie ${sig + 1} · ${vals[sig].first ?: "—"} × ${Kilos.texto(vals[sig].second)}" else null
-                val siguiente = Gym.siguiente(tdia, tIdx)?.let { tdia.ejercicios[it].nombre }
-                Descanso(tej.nombre, t.restanteMs(now), t.total, t.pausa, luego, siguiente, now, tiempo, hr, kcal,
+                val siguiente = Gym.siguiente(tdia, tIdx)?.let { corto(tdia.ejercicios[it].nombre) }
+                Descanso(corto(tej.nombre), t.restanteMs(now), t.total, t.pausa, luego, siguiente, now, tiempo, hr, kcal,
                     verControles, onTap = { verControles = !verControles }, onPausa = { Gym.pausar() }, onSaltar = { Gym.saltar(); verControles = false })
             }
             ej.numSeries > 0 && hechas.size >= ej.numSeries -> {
@@ -351,7 +354,7 @@ private fun ListaDia(dia: Dia, ses: Gym.Sesion, now: Long, onEjercicio: (Int) ->
                 ) {
                     GifView(e.clave, Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)))
                     Spacer(Modifier.width(9.dp))
-                    Text(e.nombre, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text(corto(e.nombre), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     Text(txt, fontSize = 24.sp, fontFamily = Barlow, color = if (txt == "✓") VerdeTxt else Color.White, fontWeight = FontWeight.Bold)
                 }
             }
@@ -377,7 +380,7 @@ private fun Ficha(dia: Dia, ej: Ejercicio, now: Long, onEmpezar: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(top = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Hora(now)
         GifView(ej.clave, Modifier.padding(top = 4.dp).size(118.dp, 84.dp).clip(RoundedCornerShape(10.dp)))
-        Text(ej.nombre, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1,
+        Text(corto(ej.nombre), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
         val desc = if (ej.descanso != "—") " · descanso ${ej.descanso}" else ""
         Text(ej.series.replace("x", " × ") + desc, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Claro)
@@ -414,7 +417,7 @@ private fun Serie(
                     GifView(ej.clave, Modifier.size(24.dp).clip(RoundedCornerShape(5.dp)))
                     Spacer(Modifier.width(5.dp))
                 }
-                Text(ej.nombre, fontSize = 14.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(corto(ej.nombre), fontSize = 14.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             when {
                 ej.numSeries == 0 -> {
@@ -535,12 +538,12 @@ private fun Siguiente(hecho: Ejercicio, sig: Ejercicio?, now: Long, tiempo: Stri
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(top = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Hora(now)
-            Text("✓ ${hecho.nombre} hecha", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VerdeTxt, maxLines = 1,
+            Text("✓ ${corto(hecho.nombre)} hecha", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VerdeTxt, maxLines = 1,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 24.dp))
             if (sig != null) {
                 Text("SIGUIENTE", fontSize = 10.sp, color = Gris, modifier = Modifier.padding(top = 3.dp).clickable(onClick = onLista))
                 GifView(sig.clave, Modifier.size(60.dp, 44.dp).clip(RoundedCornerShape(8.dp)))
-                Text(sig.nombre, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1,
+                Text(corto(sig.nombre), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1,
                     overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 24.dp))
                 Spacer(Modifier.height(3.dp))
                 Pastilla("Empezar", Verde, onEmpezar)
