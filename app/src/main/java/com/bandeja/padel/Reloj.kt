@@ -260,9 +260,7 @@ fun GymReloj(onSalir: () -> Unit) {
                 val tej = tdia.ejercicios.firstOrNull { Gym.clave(tdia.id, it) == t.key } ?: ej
                 val tIdx = tdia.ejercicios.indexOf(tej)
                 val vals = Gym.valores(tdia.id, tej)
-                val sig = Gym.primeraPendiente(tdia, tej)
-                val todas = ses.hechas(t.key).size >= tej.numSeries
-                val luego = if (!todas && sig in vals.indices) "Luego: serie ${sig + 1}/${tej.numSeries} · ${vals[sig].first ?: "—"} × ${Kilos.texto(vals[sig].second)}" else null
+                val luego = if (t.serie in vals.indices) "Serie ${t.serie + 1}/${tej.numSeries} · ${vals[t.serie].first ?: "—"} × ${Kilos.texto(vals[t.serie].second)}" else null
                 val siguiente = Gym.siguiente(tdia, tIdx)?.let { corto(tdia.ejercicios[it].nombre) }
                 Descanso(corto(tej.nombre), t.restanteMs(now), t.total, t.pausa, luego, siguiente, now, tiempo, hr, kcal,
                     verControles, onTap = { verControles = !verControles }, onPausa = { Gym.pausar() }, onSaltar = { Gym.saltar(); verControles = false })
