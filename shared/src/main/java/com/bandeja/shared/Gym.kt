@@ -230,8 +230,8 @@ object Gym {
         var timer = s.timer
         var pausa = s.pausa
         var parado = s.parado
-        // Otra rutina el mismo día después de terminar una: empieza una sesión nueva.
-        if (hecha && fin > 0 && s.dia != dia.id) { inicio = 0L; fin = 0L; timer = null; pausa = 0L; parado = 0L }
+        // Otra rutina el mismo día (terminada o no la anterior): empieza una sesión nueva con su tiempo desde cero.
+        if (hecha && inicio > 0 && s.dia != dia.id) { inicio = 0L; fin = 0L; timer = null; pausa = 0L; parado = 0L }
         // Hacer una serie con la sesión en pausa la pone en marcha otra vez.
         if (hecha && pausa > 0 && fin == 0L) { parado += now - pausa; pausa = 0L }
         if (hecha) {
@@ -266,7 +266,7 @@ object Gym {
         val now = System.currentTimeMillis()
         val s = sesion()
         val key = clave(dia.id, ej)
-        val nueva = s.inicio == 0L || (s.fin > 0 && s.dia != dia.id)
+        val nueva = s.inicio == 0L || s.dia != dia.id
         guardar(s.copy(dia = dia.id, inicio = if (nueva) now else s.inicio, fin = if (nueva) 0L else s.fin,
             pausa = if (nueva) 0L else s.pausa, parado = if (nueva) 0L else s.parado,
             timer = Temporizador("trabajo", key, serie, ej.trabajoSeg, now + ej.trabajoSeg * 1000L, false, 0),
@@ -326,7 +326,7 @@ object Gym {
         val now = System.currentTimeMillis()
         val s = sesion()
         val key = clave(dia.id, ej)
-        val nueva = s.inicio == 0L || (s.fin > 0 && s.dia != dia.id)
+        val nueva = s.inicio == 0L || s.dia != dia.id
         val te = if (nueva) null else s.tiempos[key]
         val hechas = if (nueva) 0 else s.hechas(key).size
         val crono = when {
