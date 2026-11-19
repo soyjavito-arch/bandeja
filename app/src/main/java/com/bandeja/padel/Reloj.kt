@@ -248,7 +248,7 @@ fun GymReloj(onSalir: () -> Unit) {
             }
             pantalla == "ficha" -> {
                 BackHandler { pantalla = "lista" }
-                Ficha(dia, ej, now) { empezarServicio(); pantalla = "serie" }
+                Ficha(dia, ej, now) { Gym.empezarEjercicio(dia, ej); empezarServicio(); pantalla = "serie" }
             }
             pantalla == "fin" -> {
                 BackHandler { onSalir() }
@@ -269,7 +269,7 @@ fun GymReloj(onSalir: () -> Unit) {
                 BackHandler { pantalla = "lista" }
                 val sigIdx = Gym.siguiente(dia, idx)
                 Siguiente(ej, sigIdx?.let { dia.ejercicios[it] }, now, tiempo, hr, kcal,
-                    onEmpezar = { if (sigIdx != null) { idx = sigIdx } else { Gym.terminarSesion(); pantalla = "fin" } },
+                    onEmpezar = { if (sigIdx != null) { idx = sigIdx; Gym.empezarEjercicio(dia, dia.ejercicios[sigIdx]) } else { Gym.terminarSesion(); pantalla = "fin" } },
                     onLista = { pantalla = "lista" })
             }
             else -> {

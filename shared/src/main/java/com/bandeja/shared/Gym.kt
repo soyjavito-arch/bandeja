@@ -269,7 +269,9 @@ object Gym {
         val nueva = s.inicio == 0L || (s.fin > 0 && s.dia != dia.id)
         guardar(s.copy(dia = dia.id, inicio = if (nueva) now else s.inicio, fin = if (nueva) 0L else s.fin,
             pausa = if (nueva) 0L else s.pausa, parado = if (nueva) 0L else s.parado,
-            timer = Temporizador("trabajo", key, serie, ej.trabajoSeg, now + ej.trabajoSeg * 1000L, false, 0)))
+            timer = Temporizador("trabajo", key, serie, ej.trabajoSeg, now + ej.trabajoSeg * 1000L, false, 0),
+            // Si el cronómetro del ejercicio no había empezado, arranca ahora.
+            tiempos = if (s.tiempos.containsKey(key) && !nueva) s.tiempos else s.tiempos + (key to (now to 0L))))
     }
 
     fun pausar() {
@@ -316,6 +318,28 @@ object Gym {
      * Cronómetro del ejercicio a mano. Se guarda como (inicio, parada): parada = 0 si corre.
      * Al continuar se corre el inicio lo que estuvo parado, así no cuenta ese rato.
      */
+    /**
+     * Botón «Empezar» de un ejercicio: arranca su cronómetro (se para solo con la última serie)
+     * y, si la sesión no ha empezado, arranca también el tiempo total del entreno.
+     */
+    fun empezarEjercicio(dia: Dia, ej: Ejercicio) {
+        val now = System.currentTimeMillis()
+        val s = sesion()
+        val key = clave(dia.id, ej)
+        val nueva = s.inicio == 0L || (s.fin > 0 && s.dia != dia.id)
+        val te = if (nueva) null else s.tiempos[key]
+        val hechas = if (nueva) 0 else s.hechas(key).size
+        val crono = when {
+            te == null -> now to 0L
+            te.second > 0 && hechas < ej.numSeries -> (te.first + now - te.second) to 0L
+            else -> te
+        }
+        val base = if (nueva) s.copy(dia = dia.id, inicio = now, fin = 0L, pausa = 0L, parado = 0L, timer = null)
+        else if (s.pausa > 0 && s.fin == 0L) s.copy(dia = dia.id, parado = s.parado + now - s.pausa, pausa = 0L)
+        else s.copy(dia = dia.id)
+        guardar(base.copy(tiempos = base.tiempos + (key to crono)))
+    }
+
     fun cronoEjercicio(dia: Dia, ej: Ejercicio, accion: String) {
         if (accion == "tocar") {
             val te = sesion().tiempos[clave(dia.id, ej)]
