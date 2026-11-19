@@ -529,7 +529,7 @@ private fun Descanso(
                 }
             }
         }
-        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp)) { Datos(tiempo, hr, kcal) }
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp)) { Datos(tiempo, hr, kcal) }
     }
 }
 
