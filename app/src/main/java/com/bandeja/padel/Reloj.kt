@@ -505,12 +505,13 @@ private fun Descanso(
             drawArc(Boton, 0f, 360f, false, style = st)
             drawArc(Color(0xFFE07B1F), -90f, 360f * frac, false, style = st)
         }
-        Column(Modifier.fillMaxSize().padding(top = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Hora(now, 16)
+        Column(Modifier.fillMaxSize().padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Hora(now, 15)
             Text((if (pausa) "EN PAUSA · " else "DESCANSO · ") + nombre.uppercase(), fontSize = 15.sp, fontFamily = Barlow,
                 fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.8f), maxLines = 1,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 30.dp))
-            Text(Fechas.mmss((restanteMs + 999) / 1000), fontSize = 76.sp, lineHeight = 72.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold,
+            // Cuenta atrás más arriba para dejar sitio a las líneas de abajo.
+            Text(Fechas.mmss((restanteMs + 999) / 1000), fontSize = 68.sp, lineHeight = 62.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold,
                 color = Color.White.copy(alpha = if (pausa) 0.55f else 1f))
             if (controles) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -518,11 +519,14 @@ private fun Descanso(
                     Redondo("»", onSaltar, 36)
                 }
             } else {
-                luego?.let { Text(it, fontSize = 12.sp, color = Claro) }
-                siguiente?.let { Text("➜ $it", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VerdeTxt, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 30.dp)) }
+                luego?.let { Text(it, fontSize = 16.sp, lineHeight = 18.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Color.White) }
+                siguiente?.let {
+                    Text("➜ $it", fontSize = 16.sp, lineHeight = 18.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = VerdeTxt,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp).padding(horizontal = 34.dp))
+                }
             }
         }
-        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 26.dp)) { Datos(tiempo, hr, kcal) }
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp)) { Datos(tiempo, hr, kcal) }
     }
 }
 
