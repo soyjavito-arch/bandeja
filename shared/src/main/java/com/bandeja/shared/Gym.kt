@@ -129,7 +129,24 @@ object Gym {
     }
 
     private fun guardar(s: Sesion) {
-        Docs.put(LIVE, JSONObject().apply {
+        val now = System.currentTimeMillis()
+        val viejo = Docs.get(LIVE)
+        val mismoDia = viejo?.optString("d") == s.fecha
+        // Hora de cada cambio de serie (+ marcada, − desmarcada) y del temporizador: así, si el móvil y el reloj
+        // cambian algo casi a la vez, se juntan las dos cosas en vez de perderse una (ver mezclar()).
+        val dt = (if (mismoDia) viejo?.optJSONObject("dt") else null) ?: JSONObject()
+        val antes = if (mismoDia) sesion().hechas else emptyMap()
+        (antes.keys + s.hechas.keys).forEach { k ->
+            val a = antes[k] ?: emptySet(); val b = s.hechas[k] ?: emptySet()
+            (a + b).forEach { n ->
+                if ((n in a) != (n in b)) {
+                    val o = dt.optJSONObject(k) ?: JSONObject().also { dt.put(k, it) }
+                    o.put(n.toString(), if (n in b) now else -now)
+                }
+            }
+        }
+        val timerViejo = if (mismoDia) viejo?.opt("timer")?.toString() else null
+        val doc = JSONObject().apply {
             put("d", s.fecha)
             put("dia", s.dia ?: JSONObject.NULL)
             put("start", s.inicio)
@@ -144,7 +161,57 @@ object Gym {
                     put("fin", it.fin); put("pausa", it.pausa); put("quedan", it.quedanMs)
                 }
             } ?: JSONObject.NULL)
-        })
+        }
+        val tt = if (timerViejo != null && timerViejo == doc.opt("timer").toString()) viejo?.optLong("tt") ?: 0L else now
+        doc.put("dt", dt)
+        doc.put("tt", tt)
+        Docs.put(LIVE, doc)
+    }
+
+    /**
+     * Junta la sesión del móvil y la del reloj cuando las dos cambiaron casi a la vez:
+     * cada serie se queda con su último cambio, el temporizador con el más reciente
+     * y el resto (inicio, fin, pausa…) con la versión más nueva.
+     */
+    fun mezclar(a: JSONObject, ta: Long, b: JSONObject, tb: Long): JSONObject {
+        if (a.optString("d") != b.optString("d")) return if (ta >= tb) a else b
+        val nuevo = if (ta >= tb) a else b
+        val otro = if (ta >= tb) b else a
+        val out = JSONObject()
+        listOf("d", "dia", "start", "end", "pausa", "parado").forEach { out.put(it, nuevo.opt(it) ?: JSONObject.NULL) }
+        // Series: la última marca de cada una gana.
+        val dt = JSONObject()
+        val da = a.optJSONObject("dt") ?: JSONObject(); val db = b.optJSONObject("dt") ?: JSONObject()
+        (da.keys().asSequence() + db.keys().asSequence()).toSortedSet().forEach { k ->
+            val oa = da.optJSONObject(k) ?: JSONObject(); val ob = db.optJSONObject(k) ?: JSONObject()
+            val o = JSONObject()
+            (oa.keys().asSequence() + ob.keys().asSequence()).toSortedSet(compareBy<String> { it.toIntOrNull() ?: 0 }).forEach { n ->
+                val x = oa.optLong(n); val y = ob.optLong(n)
+                o.put(n, if (Math.abs(x) >= Math.abs(y)) x else y)
+            }
+            dt.put(k, o)
+        }
+        val done = JSONObject()
+        val dn = nuevo.optJSONObject("done") ?: JSONObject()
+        (dn.keys().asSequence() + dt.keys().asSequence()).toSortedSet().forEach { k ->
+            val marcas = dt.optJSONObject(k)
+            val set = sortedSetOf<Int>()
+            dn.optJSONArray(k)?.let { arr -> (0 until arr.length()).forEach { i -> val n = arr.optInt(i); if (marcas?.has(n.toString()) != true) set.add(n) } }
+            marcas?.keys()?.forEach { n -> if (marcas.optLong(n) > 0) n.toIntOrNull()?.let { set.add(it) } }
+            if (set.isNotEmpty()) done.put(k, JSONArray(set.toList()))
+        }
+        out.put("done", done)
+        // Cronómetros de ejercicio: los de los dos, y si coinciden, el de la versión más nueva.
+        val ej = JSONObject()
+        val en = nuevo.optJSONObject("ej") ?: JSONObject(); val eo = otro.optJSONObject("ej") ?: JSONObject()
+        (en.keys().asSequence() + eo.keys().asSequence()).toSortedSet().forEach { k -> ej.put(k, en.optJSONArray(k) ?: eo.optJSONArray(k)) }
+        out.put("ej", ej)
+        // Temporizador (descanso o serie por tiempo): el último que se tocó.
+        val conTimer = if (a.optLong("tt") >= b.optLong("tt")) a else b
+        out.put("timer", conTimer.opt("timer") ?: JSONObject.NULL)
+        out.put("dt", dt)
+        out.put("tt", conTimer.optLong("tt"))
+        return out
     }
 
     /** Último ejercicio con series antes de los estiramientos: al acabarlo se para el cronómetro. */

@@ -62,6 +62,7 @@ object Sync {
         if (::data.isInitialized) return
         appContext = context.applicationContext
         Docs.init(appContext)
+        Docs.mezcladores[Gym.LIVE] = Gym::mezclar
         Semilla.cargar(appContext)
         data = Wearable.getDataClient(appContext)
         msg = Wearable.getMessageClient(appContext)

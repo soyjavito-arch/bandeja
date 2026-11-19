@@ -207,6 +207,13 @@ fun GymReloj(onSalir: () -> Unit) {
     val dia = diaId?.let { Rutina.dia(it) }
     var idx by remember { mutableIntStateOf(dia?.let { Gym.actual(it) } ?: 0) }
     var verControles by remember { mutableStateOf(false) }
+    // Si se apunta una serie en el móvil (de otro ejercicio), el reloj se va a ese ejercicio.
+    val tKey = ses.timer?.key
+    LaunchedEffect(tKey, ses.timer?.serie) {
+        val d = dia ?: return@LaunchedEffect
+        val i = d.ejercicios.indexOfFirst { Gym.clave(d.id, it) == tKey }
+        if (i >= 0 && pantalla == "serie") idx = i
+    }
 
     val kcal = Pulso.leer()?.second
     val tiempo = Fechas.hms(ses.duracionMs(now) / 1000)

@@ -57,9 +57,29 @@ object Docs {
 
     fun delete(key: String) = write(key, Entry(System.currentTimeMillis(), null), true)
 
-    /** Cambio que llega del otro dispositivo: solo se aplica si es más nuevo. */
+    /** Documentos que se juntan campo a campo en vez de quedarse con el más nuevo (la sesión de gym). */
+    val mezcladores = HashMap<String, (JSONObject, Long, JSONObject, Long) -> JSONObject>()
+
+    /** Cambio que llega del otro dispositivo: solo se aplica si es más nuevo (o se junta, si tiene mezclador). */
     fun merge(key: String, raw: String): Boolean {
         val e = Entry.parse(raw) ?: return false
+        val mezclar = mezcladores[key]
+        if (mezclar != null) {
+            val cur = synchronized(this) { cache[key] }
+            if (cur?.v != null && e.v != null) {
+                if (cur.t == e.t && cur.v.toString() == e.v.toString()) return false
+                val m = mezclar(JSONObject(cur.v.toString()), cur.t, JSONObject(e.v.toString()), e.t)
+                val t = maxOf(cur.t, e.t)
+                return when (m.toString()) {
+                    // Lo suyo ya incluye lo nuestro: nos lo quedamos (si su hora va atrasada, con hora nueva y avisando).
+                    e.v.toString() -> { if (e.t > cur.t) write(key, e, false) else write(key, Entry(cur.t + 1, m), true); true }
+                    // Lo nuestro ya incluye lo suyo: si el suyo era más nuevo, se le vuelve a mandar lo nuestro.
+                    cur.v.toString() -> { if (e.t > cur.t) write(key, Entry(t + 1, m), true); e.t > cur.t }
+                    // Cada uno tenía algo: se juntan, se guarda y se manda.
+                    else -> { write(key, Entry(t + 1, m), true); true }
+                }
+            }
+        }
         synchronized(this) {
             val cur = cache[key]
             if (cur != null && cur.t >= e.t) return false

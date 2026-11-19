@@ -86,6 +86,12 @@ fun GymTab(v: Int, onInicio: () -> Unit) {
     var stats by rememberSaveable { mutableStateOf(false) }
     val dia = Rutina.dia(diaId) ?: Rutina.dias.first()
     val now = ahora()
+    // Si se apunta una serie en el reloj (de otro ejercicio), el móvil se va a ese ejercicio.
+    val tKey = ses.timer?.key
+    LaunchedEffect(tKey, ses.timer?.serie) {
+        val i = dia.ejercicios.indexOfFirst { Gym.clave(dia.id, it) == tKey }
+        if (i >= 0 && ejIdx >= 0) ejIdx = i
+    }
     LaunchedEffect(now / 1000) { Gym.tick(now) }
 
     if (stats) {
