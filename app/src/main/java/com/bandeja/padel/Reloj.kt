@@ -317,7 +317,7 @@ private fun ListaDia(dia: Dia, ses: Gym.Sesion, now: Long, onEjercicio: (Int) ->
         item {
             Row {
                 Text(dia.tag.uppercase(), fontSize = 19.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = colorDiaTxt(dia.id))
-                if (ses.inicio > 0) Text(" · " + (if (ses.pausada) "II " else "") + Fechas.hms(ses.duracionMs(now) / 1000), fontSize = 19.sp, fontFamily = Barlow,
+                if (ses.inicio > 0 && ses.dia == dia.id) Text(" · " + (if (ses.pausada) "II " else "") + Fechas.hms(ses.duracionMs(now) / 1000), fontSize = 19.sp, fontFamily = Barlow,
                     fontWeight = FontWeight.Bold, color = if (ses.pausada) NaranjaTxt else Color.White,
                     modifier = Modifier.pointerInput(Unit) {
                         detectTapGestures(
@@ -355,7 +355,7 @@ private fun ListaDia(dia: Dia, ses: Gym.Sesion, now: Long, onEjercicio: (Int) ->
                 label = { Text("✓ Terminada", fontWeight = FontWeight.Bold) },
                 secondaryLabel = { Text("Toca para continuar") },
                 colors = ChipDefaults.primaryChipColors(backgroundColor = Verde), modifier = Modifier.fillMaxWidth())
-        } else if (ses.inicio > 0) item {
+        } else if (ses.inicio > 0 && ses.dia == dia.id) item {
             Chip(onClick = { if (confirmar) onTerminar() else confirmar = true },
                 label = { Text(if (confirmar) "¿Seguro? Toca otra vez" else "Terminar sesión") },
                 secondaryLabel = { Text(Fechas.hms(ses.duracionMs(now) / 1000)) },

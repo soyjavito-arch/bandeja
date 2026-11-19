@@ -401,15 +401,22 @@ object Gym {
     }
 
     /**
-     * Rutinas hechas HOY (sin semanas ni ciclos): se marca al hacerla y vuelve a blanco al día siguiente.
+     * Rutinas marcadas como hechas: las dos últimas que se han hecho, en cualquier día.
+     * La que queda en blanco es la que toca. Al terminar esa, se pone en blanco la más antigua de las otras.
      * La que está en marcha ahora mismo no cuenta hasta que se termina.
      */
     fun hechosCiclo(): Set<String> {
         val hoy = Fechas.hoy()
         val s = sesion()
-        return Rutina.dias.map { it.id }.filter { id ->
-            val enMarcha = s.dia == id && s.inicio > 0 && s.fin == 0L
-            !enMarcha && hoy in (sesiones()[id] ?: emptyList())
-        }.toSet()
+        val todas = sesiones()
+        // Último día hecho de cada rutina (sin contar la sesión que está en marcha).
+        val ultimo = Rutina.dias.mapNotNull { d ->
+            val enMarcha = s.dia == d.id && s.inicio > 0 && s.fin == 0L
+            val fechas = (todas[d.id] ?: emptyList()).filter { !(enMarcha && it == hoy) }
+            fechas.maxOrNull()?.let { d.id to it }
+        }
+        // Mismo día: cuenta como más reciente la de la sesión de hoy.
+        return ultimo.sortedWith(compareByDescending<Pair<String, String>> { it.second }.thenByDescending { it.first == s.dia })
+            .take(Rutina.dias.size - 1).map { it.first }.toSet()
     }
 }

@@ -105,7 +105,7 @@ fun GymTab(v: Int, onInicio: () -> Unit) {
             Cabecera("Gym", onAtras = onInicio) { BotonRedondo("📈", 42.dp) { stats = true } }
             Pestanas(diaId) { diaId = it }
             Spacer(Modifier.height(6.dp))
-            if (ses.inicio > 0) {
+            if (ses.inicio > 0 && ses.dia == dia.id) {
                 SesionCaja(ses, now, grande = true)
                 Spacer(Modifier.height(4.dp))
             }
