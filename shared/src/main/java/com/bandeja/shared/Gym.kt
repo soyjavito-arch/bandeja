@@ -250,12 +250,14 @@ object Gym {
             timer = null
         }
         if (!hecha && fin > 0 && ej == ultimo(dia)) { parado += now - fin; fin = 0 }
-        // Cronómetro del ejercicio: se para al hacer todas las series y sigue si se desmarca una.
+        // Cronómetro del ejercicio: se para al acabar el descanso de la última serie (cuando suena «Finished»;
+        // lo hace tick) o ya mismo si no hay descanso. Sigue si se desmarca una.
         val tiempos = s.tiempos.toMutableMap()
         val te = tiempos[key]
         val antes = s.hechas(key).size >= ej.numSeries
         if (ej.numSeries > 0 && set.size >= ej.numSeries) {
-            if (te != null && te.second == 0L) tiempos[key] = te.first to now // se para con la última serie
+            val conDescanso = timer?.tipo == "descanso" && timer.key == key
+            if (te != null && te.second == 0L && !conDescanso) tiempos[key] = te.first to now
         } else if (antes && te != null && te.second > 0) tiempos[key] = (te.first + now - te.second) to 0L // sigue donde se quedó
         s = s.copy(dia = dia.id, inicio = inicio, fin = fin, hechas = hechas, timer = timer, tiempos = tiempos, pausa = pausa, parado = parado)
         guardar(s)
@@ -294,8 +296,23 @@ object Gym {
     /** Se llama a menudo desde la interfaz: si acaba una serie por tiempo, la marca hecha y empieza el descanso. */
     fun tick(now: Long = System.currentTimeMillis()) {
         val s = sesion()
-        val t = s.timer ?: return
-        if (t.tipo == "trabajo" && t.terminado(now)) terminarTrabajo(s, t)
+        val t = s.timer
+        if (t != null && t.tipo == "trabajo" && t.terminado(now)) { terminarTrabajo(s, t); return }
+        // Ejercicio con todas las series hechas y su último descanso ya acabado (o saltado): se para su cronómetro.
+        val parar = s.tiempos.filter { (k, te) ->
+            if (te.second != 0L) return@filter false
+            val d = Rutina.dia(k.substringBefore('-')) ?: return@filter false
+            val ej = d.ejercicios.firstOrNull { clave(d.id, it) == k } ?: return@filter false
+            val enDescanso = t != null && t.tipo == "descanso" && t.key == k && !t.terminado(now)
+            ej.numSeries > 0 && s.hechas(k).size >= ej.numSeries && !enDescanso
+        }
+        if (parar.isEmpty()) return
+        val tiempos = s.tiempos.toMutableMap()
+        parar.forEach { (k, te) ->
+            val finDescanso = if (t != null && t.tipo == "descanso" && t.key == k) minOf(t.fin, now) else now
+            tiempos[k] = te.first to finDescanso.coerceAtLeast(te.first)
+        }
+        guardar(s.copy(tiempos = tiempos))
     }
 
     private fun terminarTrabajo(s: Sesion, t: Temporizador) {
