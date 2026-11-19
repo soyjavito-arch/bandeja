@@ -115,9 +115,11 @@ fun GymTab(v: Int, onInicio: () -> Unit) {
                 SesionCaja(ses, now, grande = true)
                 Spacer(Modifier.height(4.dp))
             }
+            val ultima = Gym.hechosUltima(dia)
             dia.ejercicios.forEachIndexed { i, ej ->
                 val hechas = ses.hechas(Gym.clave(dia.id, ej)).size
-                val completo = ej.numSeries > 0 && hechas >= ej.numSeries
+                // Rutina ya hecha (✓ en su pestaña): sus ejercicios también salen hechos hasta que vuelva a tocar.
+                val completo = ej.numSeries > 0 && (hechas >= ej.numSeries || (ultima != null && Gym.clave(dia.id, ej) in ultima))
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(10.dp)).background(Tarjeta)
                         .border(1.dp, Linea, RoundedCornerShape(10.dp)).clickable { ejIdx = i }.padding(7.dp),

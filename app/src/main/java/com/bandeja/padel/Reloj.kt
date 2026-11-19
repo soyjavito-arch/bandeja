@@ -335,10 +335,12 @@ private fun ListaDia(dia: Dia, ses: Gym.Sesion, now: Long, onEjercicio: (Int) ->
                     })
             }
         }
+        val ultima = Gym.hechosUltima(dia)
         dia.ejercicios.forEachIndexed { i, e ->
             item {
                 val h = ses.hechas(Gym.clave(dia.id, e)).size
                 val txt = when {
+                    ultima != null && Gym.clave(dia.id, e) in ultima -> "✓"
                     e.numSeries == 0 -> e.series
                     h >= e.numSeries -> "✓"
                     e.porTiempo && e.numSeries == 1 -> e.series

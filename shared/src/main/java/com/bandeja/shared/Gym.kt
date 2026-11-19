@@ -496,6 +496,23 @@ object Gym {
      * La que queda en blanco es la que toca. Al terminar esa, se pone en blanco la más antigua de las otras.
      * La que está en marcha ahora mismo no cuenta hasta que se termina.
      */
+    /**
+     * Si la rutina sale marcada como hecha (✓) y hoy no está en marcha, los ejercicios que se hicieron
+     * su último día: así dentro de la rutina también salen con ✓. null = se ve la sesión de hoy.
+     */
+    fun hechosUltima(dia: Dia): Set<String>? {
+        val s = sesion()
+        if (s.dia == dia.id && s.inicio > 0) return null
+        if (dia.id !in hechosCiclo()) return null
+        val fecha = sesiones()[dia.id]?.maxOrNull() ?: return null
+        return dia.ejercicios.mapNotNull { ej ->
+            val k = clave(dia.id, ej)
+            val h = Docs.get(k)?.optJSONArray("hist") ?: return@mapNotNull if (ej.numSeries == 0) k else null
+            val hecho = ej.numSeries == 0 || (0 until h.length()).any { h.optJSONObject(it)?.optString("d") == fecha }
+            if (hecho) k else null
+        }.toSet()
+    }
+
     fun hechosCiclo(): Set<String> {
         val hoy = Fechas.hoy()
         val s = sesion()
