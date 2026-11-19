@@ -401,7 +401,7 @@ private fun Serie(
     val serie = Gym.primeraPendiente(dia, ej)
     // Todo va en una columna (también tiempo, pulso y kcal) para que nada se monte en la esfera redonda.
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().padding(top = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.fillMaxSize().padding(top = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             // Botón para volver a la lista del entreno (también vale el botón atrás del reloj).
             Row(Modifier.height(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.clip(RoundedCornerShape(12.dp)).background(colorDia(dia.id)).clickable(onClick = onLista)
@@ -474,16 +474,16 @@ private fun BotonTerminada(serie: Int, onHecha: (Int) -> Unit) {
 /** Tiempo, pulso y calorías dentro del flujo de la pantalla (versión compacta). */
 @Composable
 private fun DatosPeq(tiempo: String, hr: Int, kcal: Int?) {
-    Row(Modifier.height(18.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        TiempoSesion(tiempo, 15)
-        Text("♥" + (if (hr > 0) hr else "--"), fontSize = 15.sp, lineHeight = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Rojo)
-        if (kcal != null) Text("🔥$kcal", fontSize = 15.sp, lineHeight = 17.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = NaranjaTxt)
+    Row(Modifier.height(23.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        TiempoSesion(tiempo, 20)
+        Text("♥" + (if (hr > 0) hr else "--"), fontSize = 20.sp, lineHeight = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Rojo)
+        if (kcal != null) Text("🔥$kcal", fontSize = 20.sp, lineHeight = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = NaranjaTxt)
     }
 }
 
 @Composable
 private fun Fila(valor: String, unidad: String, color: Color, onMenos: () -> Unit, onMas: () -> Unit) {
-    Row(Modifier.height(32.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.height(30.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Redondo("−", onMenos, 26)
         Row(Modifier.width(70.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
             Text(valor, fontSize = 28.sp, lineHeight = 30.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = color)
