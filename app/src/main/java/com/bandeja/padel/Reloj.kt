@@ -510,7 +510,7 @@ private fun Descanso(
         }
         Column(Modifier.fillMaxSize().padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Hora(now, 15)
-            Text((if (pausa) "EN PAUSA · " else "DESCANSO · ") + nombre.uppercase(), fontSize = 15.sp, fontFamily = Barlow,
+            Text((if (pausa) "EN PAUSA · " else "") + nombre.uppercase(), fontSize = 15.sp, fontFamily = Barlow,
                 fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.8f), maxLines = 1,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 30.dp))
             // Cuenta atrás más arriba para dejar sitio a las líneas de abajo.
