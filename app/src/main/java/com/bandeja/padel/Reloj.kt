@@ -453,7 +453,16 @@ private fun Serie(
                 }
             }
             Spacer(Modifier.height(3.dp))
-            DatosPeq(tiempo, hr, kcal)
+            // Aquí abajo va el tiempo de este ejercicio (no el del entreno). Tocarlo: para / sigue / arranca.
+            val te = Gym.sesion().tiempos[Gym.clave(dia.id, ej)]
+            val msEj = te?.let { ((if (it.second > 0) it.second else now) - it.first).coerceAtLeast(0) } ?: 0L
+            Row(Modifier.height(23.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(Fechas.mmss(msEj / 1000), fontSize = 20.sp, lineHeight = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold,
+                    color = if (te != null && te.second == 0L) Color.White else Gris,
+                    modifier = Modifier.clickable { Gym.cronoEjercicio(dia, ej, "tocar") })
+                Text("♥" + (if (hr > 0) hr else "--"), fontSize = 20.sp, lineHeight = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Rojo)
+                if (kcal != null) Text("🔥$kcal", fontSize = 20.sp, lineHeight = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = NaranjaTxt)
+            }
         }
         Text("‹", fontSize = 26.sp, color = Claro, fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp).clickable(onClick = onAnterior).padding(6.dp))
@@ -472,16 +481,6 @@ private fun BotonTerminada(serie: Int, onHecha: (Int) -> Unit) {
     Box(Modifier.height(28.dp).clip(RoundedCornerShape(14.dp)).background(if (pulsado) Verde else Color.White)
         .clickable(enabled = !pulsado) { pulsado = true }.padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
         Text("✓ Terminada", fontSize = 14.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, color = if (pulsado) Color.White else Color.Black)
-    }
-}
-
-/** Tiempo, pulso y calorías dentro del flujo de la pantalla (versión compacta). */
-@Composable
-private fun DatosPeq(tiempo: String, hr: Int, kcal: Int?) {
-    Row(Modifier.height(23.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        TiempoSesion(tiempo, 20)
-        Text("♥" + (if (hr > 0) hr else "--"), fontSize = 20.sp, lineHeight = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Rojo)
-        if (kcal != null) Text("🔥$kcal", fontSize = 20.sp, lineHeight = 22.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = NaranjaTxt)
     }
 }
 
