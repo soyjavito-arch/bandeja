@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -260,7 +261,8 @@ fun GymReloj(onSalir: () -> Unit) {
                 val tej = tdia.ejercicios.firstOrNull { Gym.clave(tdia.id, it) == t.key } ?: ej
                 val tIdx = tdia.ejercicios.indexOf(tej)
                 val vals = Gym.valores(tdia.id, tej)
-                val luego = if (t.serie in vals.indices) "Serie ${t.serie + 1}/${tej.numSeries} · ${vals[t.serie].first ?: "—"} × ${Kilos.texto(vals[t.serie].second)}" else null
+                val luego = if (t.serie in vals.indices) "Serie ${t.serie + 1}/${tej.numSeries}" +
+                    (vals[t.serie].let { (r, w) -> if (r == null && w == null) "" else " · ${r ?: "—"} × ${Kilos.texto(w)}" }) else null
                 val siguiente = Gym.siguiente(tdia, tIdx)?.let { corto(tdia.ejercicios[it].nombre) }
                 Descanso(corto(tej.nombre), t.restanteMs(now), t.total, t.pausa, luego, siguiente, now, tiempo, hr, kcal,
                     verControles, onTap = { verControles = !verControles }, onPausa = { Gym.pausar() }, onSaltar = { Gym.saltar(); verControles = false })
@@ -502,34 +504,49 @@ private fun Descanso(
     onTap: () -> Unit, onPausa: () -> Unit, onSaltar: () -> Unit,
 ) {
     val frac = if (total > 0) (restanteMs / 1000f / total).coerceIn(0f, 1f) else 0f
-    Box(Modifier.fillMaxSize().clickable(onClick = onTap)) {
-        Canvas(Modifier.fillMaxSize().padding(4.dp)) {
-            val st = Stroke(width = 9.dp.toPx(), cap = StrokeCap.Round)
+    // Medidas fijas respecto a la esfera (no cambian con el tamaño de letra del sistema): queda igual que la imagen acordada.
+    BoxWithConstraints(Modifier.fillMaxSize().clickable(onClick = onTap)) {
+        val dens = androidx.compose.ui.platform.LocalDensity.current
+        val lado = if (maxWidth < maxHeight) maxWidth else maxHeight
+        fun d(x: Float) = lado * (x / 225f)
+        fun t(x: Float) = with(dens) { d(x).toSp() }
+        @Composable
+        fun Linea(texto: String, alto: Float, letra: Float, color: Color, peso: FontWeight, lados: Float = 0f) {
+            Box(Modifier.fillMaxWidth().height(d(alto)).padding(horizontal = d(lados)), contentAlignment = Alignment.Center) {
+                Text(texto, fontSize = t(letra), lineHeight = t(letra), fontFamily = Barlow, fontWeight = peso, color = color,
+                    maxLines = 1, softWrap = false, overflow = if (lados > 0f) TextOverflow.Ellipsis else TextOverflow.Visible,
+                    modifier = Modifier.wrapContentHeight(unbounded = true))
+            }
+        }
+        Canvas(Modifier.fillMaxSize().padding(d(4f))) {
+            val st = Stroke(width = d(9f).toPx(), cap = StrokeCap.Round)
             drawArc(Boton, 0f, 360f, false, style = st)
             drawArc(Color(0xFFE07B1F), -90f, 360f * frac, false, style = st)
         }
-        Column(Modifier.fillMaxSize().padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Hora(now, 15)
-            Text((if (pausa) "EN PAUSA · " else "") + nombre.uppercase(), fontSize = 15.sp, fontFamily = Barlow,
-                fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.8f), maxLines = 1,
-                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 30.dp))
-            // Cuenta atrás más arriba para dejar sitio a las líneas de abajo.
-            Text(Fechas.mmss((restanteMs + 999) / 1000), fontSize = 68.sp, lineHeight = 62.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = if (pausa) 0.55f else 1f))
+        Column(Modifier.fillMaxSize().padding(top = d(15f)), horizontalAlignment = Alignment.CenterHorizontally) {
+            Linea(Fechas.hora(now), 19f, 16f, Color.White, FontWeight.SemiBold)
+            Linea((if (pausa) "EN PAUSA · " else "") + nombre.uppercase(), 19f, 15f, Color.White.copy(alpha = 0.8f), FontWeight.SemiBold, 30f)
+            Linea(Fechas.mmss((restanteMs + 999) / 1000), 62f, 66f, Color.White.copy(alpha = if (pausa) 0.55f else 1f), FontWeight.Bold)
             if (controles) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(d(10f))) {
                     Redondo(if (pausa) "▶" else "❚❚", onPausa, 36)
                     Redondo("»", onSaltar, 36)
                 }
             } else {
-                luego?.let { Text(it, fontSize = 16.sp, lineHeight = 18.sp, fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Color.White) }
-                siguiente?.let {
-                    Text("➜ $it", fontSize = 16.sp, lineHeight = 18.sp, fontFamily = Barlow, fontWeight = FontWeight.Bold, color = VerdeTxt,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp).padding(horizontal = 34.dp))
-                }
+                luego?.let { Linea(it, 21f, 17f, Color.White, FontWeight.SemiBold, 26f) }
+                Spacer(Modifier.height(d(3f)))
+                siguiente?.let { Linea("➜ $it", 21f, 17f, VerdeTxt, FontWeight.Bold, 34f) }
             }
         }
-        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp)) { Datos(tiempo, hr, kcal) }
+        // Abajo, separado: tiempo de la sesión (tocar = pausa), pulso y calorías.
+        val pausada = Gym.sesion().pausada
+        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = d(30f)).height(d(22f)),
+            horizontalArrangement = Arrangement.spacedBy(d(7f)), verticalAlignment = Alignment.CenterVertically) {
+            Text((if (pausada) "II " else "") + tiempo, fontSize = t(18f), lineHeight = t(18f), fontFamily = Barlow, fontWeight = FontWeight.SemiBold,
+                color = if (pausada) NaranjaTxt else Color.White, softWrap = false, modifier = Modifier.clickable { Gym.pausarSesion() })
+            Text("♥" + (if (hr > 0) hr else "--"), fontSize = t(18f), lineHeight = t(18f), fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = Rojo, softWrap = false)
+            if (kcal != null) Text("🔥$kcal", fontSize = t(18f), lineHeight = t(18f), fontFamily = Barlow, fontWeight = FontWeight.SemiBold, color = NaranjaTxt, softWrap = false)
+        }
     }
 }
 
