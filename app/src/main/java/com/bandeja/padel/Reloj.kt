@@ -540,7 +540,7 @@ private fun Descanso(
         }
         // Abajo, separado: tiempo de la sesión (tocar = pausa), pulso y calorías.
         val pausada = Gym.sesion().pausada
-        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = d(30f)).height(d(22f)),
+        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = d(36f)).height(d(22f)),
             horizontalArrangement = Arrangement.spacedBy(d(7f)), verticalAlignment = Alignment.CenterVertically) {
             Text((if (pausada) "II " else "") + tiempo, fontSize = t(18f), lineHeight = t(18f), fontFamily = Barlow, fontWeight = FontWeight.SemiBold,
                 color = if (pausada) NaranjaTxt else Color.White, softWrap = false, modifier = Modifier.clickable { Gym.pausarSesion() })
