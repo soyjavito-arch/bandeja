@@ -525,7 +525,7 @@ private fun Descanso(
         }
         Column(Modifier.fillMaxSize().padding(top = d(15f)), horizontalAlignment = Alignment.CenterHorizontally) {
             Linea(Fechas.hora(now), 19f, 16f, Color.White, FontWeight.SemiBold)
-            Linea((if (pausa) "EN PAUSA · " else "") + nombre.uppercase(), 19f, 15f, Color.White.copy(alpha = 0.8f), FontWeight.SemiBold, 30f)
+            Linea((if (pausa) "EN PAUSA · " else "") + nombre.uppercase(), 19f, 15f, Color.White.copy(alpha = 0.8f), FontWeight.SemiBold, 44f)
             Linea(Fechas.mmss((restanteMs + 999) / 1000), 62f, 66f, Color.White.copy(alpha = if (pausa) 0.55f else 1f), FontWeight.Bold)
             if (controles) {
                 Row(horizontalArrangement = Arrangement.spacedBy(d(10f))) {
