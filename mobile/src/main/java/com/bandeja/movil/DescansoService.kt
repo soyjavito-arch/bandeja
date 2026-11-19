@@ -138,7 +138,8 @@ class DescansoService : Service() {
                 avisado = id
                 val d = Rutina.dia(t.key.substringBefore('-'))
                 val ej = d?.ejercicios?.firstOrNull { Gym.clave(d.id, it) == t.key }
-                val ultima = ej != null && s.hechas(t.key).size >= ej.numSeries
+                // Última serie del ejercicio: o ya están todas hechas, o el descanso es el de la última serie.
+                val ultima = ej != null && (s.hechas(t.key).size >= ej.numSeries || t.serie >= ej.numSeries - 1)
                 voz(if (ultima) "finished" else "start", longArrayOf(0, 400, 150, 400, 150, 600))
             }
             if ("$titulo|$texto" != ultimoTexto) {
